@@ -135,11 +135,13 @@ function proxyBuyVolume(coin: MarketCandidate) {
 }
 
 export const fallbackCandidates: MarketCandidate[] = [
-  ["DezXAZ8z7PnrnRJjz3wXBoRgixCa6YYmx3zbB1pPB263", "BONK", "Bonk", 0.000014, 1_000_000_000, 2_500_000, 35_000_000, 1200, 950, 1.7],
-  ["EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzL3L6f4czhhpj", "WIF", "dogwifhat", 0.62, 620_000_000, 9_000_000, 42_000_000, 1500, 1400, -0.8],
+  ["6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN", "TRUMP", "Official Trump", 1.58, 316_000_000, 27_000_000, 18_000_000, 1600, 1450, 0.7],
+  ["EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", "WIF", "dogwifhat", 0.16, 159_000_000, 4_200_000, 9_000_000, 1500, 1400, -0.8],
   ["2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv", "PENGU", "Pudgy Penguins", 0.0064, 400_000_000, 3_100_000, 18_000_000, 980, 810, 2.1],
   ["7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", "POPCAT", "Popcat", 0.044, 43_000_000, 2_900_000, 8_000_000, 620, 570, 0.4],
   ["9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump", "FARTCOIN", "Fartcoin", 0.31, 310_000_000, 6_500_000, 21_000_000, 1100, 990, -1.3],
+  ["MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5", "MEW", "cat in a dogs world", 0.00037, 33_000_000, 7_000_000, 5_000_000, 740, 680, 0.6],
+  ["ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82", "BOME", "BOOK OF MEME", 0.00051, 35_000_000, 9_800_000, 12_000_000, 820, 760, 1.1],
 ].map(
   ([tokenAddress, symbol, name, priceUsd, marketCap, liquidityUsd, volumeUsd, buys, sells, changePercent]) => ({
     tokenAddress: String(tokenAddress),

@@ -30,7 +30,7 @@ test("renders the MT5 public index page", async () => {
   const html = await response.text();
   assert.match(html, /<title>MT5 — Human Demand Meme Index<\/title>/i);
   assert.match(html, /ウォレットではなく/);
-  assert.match(html, /BONK/);
+  assert.match(html, /TRUMP/);
   assert.match(html, /算出ルール/);
   assert.match(html, /ユーザー数とは表示しません/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);

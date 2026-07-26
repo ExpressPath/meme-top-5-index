@@ -85,13 +85,18 @@ export async function GET() {
 }
 
 async function fetchMarketCandidates(): Promise<MarketCandidate[]> {
-  const [profilesResponse, boostsResponse] = await Promise.all([
+  const [profilesResponse, boostsResponse, ...seedResults] = await Promise.all([
     fetch("https://api.dexscreener.com/token-profiles/latest/v1", {
       headers: { Accept: "application/json" },
     }),
     fetch("https://api.dexscreener.com/token-boosts/top/v1", {
       headers: { Accept: "application/json" },
     }),
+    ...SEED_ADDRESSES.map((address) =>
+      fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, {
+        headers: { Accept: "application/json" },
+      }).catch(() => null),
+    ),
   ]);
 
   const discovered: TokenRef[] = [];
@@ -102,22 +107,30 @@ async function fetchMarketCandidates(): Promise<MarketCandidate[]> {
     discovered.push(...((await boostsResponse.json()) as TokenRef[]));
   }
 
-  const addresses = [
+  const discoveredAddresses = [
     ...new Set([
-      ...SEED_ADDRESSES,
       ...discovered
         .filter((item) => item.chainId === "solana" && item.tokenAddress)
         .map((item) => item.tokenAddress as string),
     ]),
-  ].slice(0, 30);
+  ].slice(0, 23);
 
-  const response = await fetch(
-    `https://api.dexscreener.com/tokens/v1/solana/${addresses.join(",")}`,
-    { headers: { Accept: "application/json" } },
-  );
-  if (!response.ok) throw new Error(`DEX Screener returned ${response.status}`);
+  const pairs: DexPair[] = [];
+  for (const response of seedResults) {
+    if (!response?.ok) continue;
+    const payload = (await response.json()) as { pairs?: DexPair[] };
+    pairs.push(...(payload.pairs ?? []));
+  }
 
-  const pairs = (await response.json()) as DexPair[];
+  if (discoveredAddresses.length > 0) {
+    const response = await fetch(
+      `https://api.dexscreener.com/tokens/v1/solana/${discoveredAddresses.join(",")}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (response.ok) pairs.push(...((await response.json()) as DexPair[]));
+  }
+
+  if (pairs.length === 0) throw new Error("DEX Screener returned no pairs");
   const bestByToken = new Map<string, DexPair>();
 
   for (const pair of pairs) {

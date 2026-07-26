@@ -11,8 +11,8 @@ for (const key of required) {
 }
 
 const defaultAddresses = [
-  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6YYmx3zbB1pPB263",
-  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzL3L6f4czhhpj",
+  "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
   "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
   "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
   "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
