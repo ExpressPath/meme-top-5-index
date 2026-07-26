@@ -1,0 +1,25 @@
+{
+  "name": "MT5 Research Index",
+  "symbol": "MT5R",
+  "description": "A valueless Solana devnet research token used to verify MT5 metadata, authority revocation and distribution mechanics. It is not an investment product, index share, claim, or promise of redemption.",
+  "image": "https://meme-top-5-index.provf-official.chatgpt.site/mt5-brand.jpeg",
+  "external_url": "https://meme-top-5-index.provf-official.chatgpt.site",
+  "attributes": [
+    {
+      "trait_type": "Network",
+      "value": "Solana Devnet"
+    },
+    {
+      "trait_type": "Product status",
+      "value": "Research only"
+    },
+    {
+      "trait_type": "Methodology",
+      "value": "MT5 2.0"
+    },
+    {
+      "trait_type": "Redeemable",
+      "value": "No"
+    }
+  ]
+}

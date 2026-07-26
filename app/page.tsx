@@ -1,73 +1,27 @@
 import Image from "next/image";
-
-const constituents = [
-  {
-    symbol: "DOGE",
-    name: "Dogecoin",
-    weight: 30,
-    marketCap: "$36.0B",
-    volume: "$2.1B",
-    change: 2.7,
-    accent: "#e11d48",
-  },
-  {
-    symbol: "SHIB",
-    name: "Shiba Inu",
-    weight: 30,
-    marketCap: "$8.3B",
-    volume: "$340M",
-    change: -1.2,
-    accent: "#fb7185",
-  },
-  {
-    symbol: "PEPE",
-    name: "Pepe",
-    weight: 25.82,
-    marketCap: "$5.1B",
-    volume: "$620M",
-    change: 4.1,
-    accent: "#be123c",
-  },
-  {
-    symbol: "BONK",
-    name: "Bonk",
-    weight: 8.61,
-    marketCap: "$1.7B",
-    volume: "$210M",
-    change: 1.4,
-    accent: "#fda4af",
-  },
-  {
-    symbol: "FLOKI",
-    name: "Floki",
-    weight: 5.57,
-    marketCap: "$1.1B",
-    volume: "$150M",
-    change: -0.8,
-    accent: "#881337",
-  },
-];
+import { fallbackSnapshot } from "../lib/index-engine";
+import LiveIndex from "./live-index";
 
 const methodology = [
   {
     number: "01",
-    title: "Liquidity first",
-    body: "時価総額1億USD、24時間出来高1,000万USDを最低条件に設定。",
+    title: "直近30分を集計",
+    body: "Solana上のミームコイン売買を継続取得し、買い側のUSD金額を30分のローリング窓で集計します。",
   },
   {
     number: "02",
-    title: "Select the leaders",
-    body: "適格銘柄を時価総額順に並べ、上位5銘柄だけを採用。",
+    title: "ウォレットを人へ寄せる",
+    body: "Botを除外し、資金源と取引パターンが一致する場合だけ複数ウォレットを同一クラスタに統合します。",
   },
   {
     number: "03",
-    title: "Cap concentration",
-    body: "時価総額加重を基本に、1銘柄のウェイトを最大30%に制限。",
+    title: "買い総額で上位5",
+    body: "推定ユーザー25以上、十分な流動性、信頼度65%以上を満たす銘柄を有効買い総額で順位付けします。",
   },
   {
     number: "04",
-    title: "Rebalance clearly",
-    body: "定例見直しと緊急除外の履歴を公開し、指数の変更理由を残す。",
+    title: "時価総額で加重",
+    body: "採用5銘柄の価格変動を、各銘柄の時価総額比率で加重平均し、指数値として15秒ごとに更新します。",
   },
 ];
 
@@ -79,16 +33,16 @@ export default function Home() {
           <span className="brand-mark">M5</span>
           <span>
             Meme Top 5
-            <small>Research Index</small>
+            <small>Human Demand Index</small>
           </span>
         </a>
         <div className="nav-links">
-          <a href="#constituents">構成</a>
+          <a href="#index">リアルタイム指数</a>
           <a href="#methodology">算出ルール</a>
-          <a href="#risk">リスク</a>
+          <a href="#launch">トークン</a>
         </div>
-        <a className="nav-cta" href="#constituents">
-          View index
+        <a className="nav-cta" href="/api/index">
+          Open API
         </a>
       </nav>
 
@@ -96,145 +50,90 @@ export default function Home() {
         <div className="hero-copy">
           <div className="kicker">
             <span className="live-dot" />
-            Research preview · MT5
+            SOLANA · 15 SECOND MARKET REFRESH
           </div>
           <h1>
-            ミーム市場を、
+            ウォレットではなく、
             <br />
-            <em>ひとつの指標へ。</em>
+            <em>人の買いを測る。</em>
           </h1>
           <p className="hero-lede">
-            人気ではなく、公開ルールで選ぶ。MT5は流動性と時価総額を基準に、
-            主要ミームコイン5銘柄の動きを追う研究用インデックスです。
+            MT5は、直近30分で多くの推定ユーザーが買った総額の大きいミームコイン5銘柄を選び、
+            価格変動をリアルタイムの時価総額加重平均で示す研究指数です。
           </p>
           <div className="hero-actions">
-            <a className="button primary" href="#constituents">
-              現在の構成を見る
-              <span aria-hidden="true">↘</span>
+            <a className="button primary" href="#index">
+              現在の指数を見る <span aria-hidden="true">↓</span>
             </a>
             <a className="button secondary" href="#methodology">
               算出ルール
             </a>
           </div>
-          <p className="microcopy">投資商品ではありません · 価格保証なし · 研究用</p>
+          <p className="microcopy">
+            投資商品ではありません · ウォレット数をユーザー数とは表示しません · 研究用
+          </p>
         </div>
 
         <div className="hero-visual">
           <div className="image-frame">
             <Image
               src="/mt5-brand.jpeg"
-              alt="赤い上昇矢印とネイビーの棒グラフ"
+              alt="赤い上向き矢印と上昇する棒グラフ"
               fill
               priority
               sizes="(max-width: 900px) 100vw, 48vw"
             />
           </div>
-          <div className="index-float">
-            <div className="float-top">
-              <span>MT5 / USD</span>
-              <span className="preview-pill">DEMO</span>
-            </div>
-            <strong>1,000.00</strong>
-            <div className="float-bottom">
-              <span>BASE VALUE</span>
-              <span className="positive">Rules-based</span>
-            </div>
-          </div>
+          <LiveIndex initial={fallbackSnapshot} compact />
         </div>
       </section>
 
       <section className="stat-strip" aria-label="指数概要">
         <div className="shell stats">
           <div>
+            <strong>30m</strong>
+            <span>Rolling demand window</span>
+          </div>
+          <div>
             <strong>5</strong>
-            <span>Constituents</span>
+            <span>Selected coins</span>
           </div>
           <div>
-            <strong>30%</strong>
-            <span>Single-asset cap</span>
+            <strong>15s</strong>
+            <span>Market refresh</span>
           </div>
           <div>
-            <strong>$100M</strong>
-            <span>Minimum market cap</span>
-          </div>
-          <div>
-            <strong>Open</strong>
-            <span>Published methodology</span>
+            <strong>Human</strong>
+            <span>Identity estimate</span>
           </div>
         </div>
       </section>
 
-      <section className="section shell" id="constituents">
+      <section className="section shell" id="index">
         <div className="section-heading">
           <div>
-            <span className="section-label">INDEX COMPOSITION</span>
-            <h2>現在の構成</h2>
+            <span className="section-label">LIVE INDEX</span>
+            <h2>現在のトップ5</h2>
           </div>
-          <div className="as-of">
-            <span className="status-dot" />
-            2026-07-26 · Demo snapshot
-          </div>
+          <p className="section-summary">
+            選定は買い総額、値動きは時価総額加重。データの確度も同時に表示します。
+          </p>
         </div>
-
-        <div className="index-panel">
-          <div className="table-head" aria-hidden="true">
-            <span>Asset</span>
-            <span>Market cap</span>
-            <span>24h volume</span>
-            <span>24h</span>
-            <span>Weight</span>
-          </div>
-          <div className="asset-list">
-            {constituents.map((coin, index) => (
-              <article className="asset-row" key={coin.symbol}>
-                <div className="asset-id">
-                  <span
-                    className="coin-mark"
-                    style={{ backgroundColor: coin.accent }}
-                    aria-hidden="true"
-                  >
-                    {coin.symbol.slice(0, 1)}
-                  </span>
-                  <span className="rank">0{index + 1}</span>
-                  <div>
-                    <strong>{coin.symbol}</strong>
-                    <small>{coin.name}</small>
-                  </div>
-                </div>
-                <span className="market-value">{coin.marketCap}</span>
-                <span className="market-value">{coin.volume}</span>
-                <span className={coin.change >= 0 ? "positive" : "negative"}>
-                  {coin.change >= 0 ? "+" : ""}
-                  {coin.change.toFixed(1)}%
-                </span>
-                <div className="weight-cell">
-                  <strong>{coin.weight.toFixed(2)}%</strong>
-                  <div className="weight-track">
-                    <span style={{ width: `${(coin.weight / 30) * 100}%` }} />
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="panel-note">
-            <span>ⓘ</span>
-            表示値はプロダクト確認用のデモスナップショットです。ライブ価格ではありません。
-          </div>
-        </div>
+        <LiveIndex initial={fallbackSnapshot} />
       </section>
 
       <section className="method-section" id="methodology">
         <div className="shell">
           <div className="method-intro">
-            <span className="section-label light">METHODOLOGY</span>
+            <span className="section-label light">METHODOLOGY 2.0</span>
             <h2>
-              ルールを先に、
+              人気の数ではなく、
               <br />
-              ストーリーは後に。
+              買いの広がりを見る。
             </h2>
             <p>
-              採用理由を誰でも検証できるようにすることが、指数ブランドの出発点です。
-              ブラックボックスな「AI銘柄選定」は行いません。
+              1人が100個のウォレットで買っても、100人とは数えません。完全な本人確認ではなく、
+              オンチェーン上で説明可能な高信頼の推定値として公開します。
             </p>
           </div>
           <div className="method-grid">
@@ -249,42 +148,47 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section shell risk-section" id="risk">
+      <section className="section shell risk-section">
         <div className="risk-copy">
-          <span className="section-label">RISK, MADE VISIBLE</span>
-          <h2>上がる可能性より、壊れる可能性を先に見る。</h2>
+          <span className="section-label">IDENTITY LIMITS</span>
+          <h2>「ユーザー数」は推定値。</h2>
           <p>
-            ミームコインは極端な値動き、価格操作、流動性消失、コントラクト権限、
-            規制変更などの影響を受けます。出来高や時価総額は安全性を保証しません。
+            ブロックチェーンに人間の身元は記録されません。MT5はBotらしさ、共通資金源、
+            同期した売買パターンを使い、証拠が揃った場合だけウォレットを統合します。
+            誤統合と見逃しは残るため、信頼度を必ず併記します。
           </p>
         </div>
         <div className="risk-list">
           <div>
             <span>01</span>
-            <strong>Liquidity screening</strong>
-            <small>売買しにくい小規模銘柄を候補から除外</small>
+            <strong>Bot filter</strong>
+            <small>高頻度・機械的な反復売買をランキングから除外</small>
           </div>
           <div>
             <span>02</span>
-            <strong>Concentration control</strong>
-            <small>単一銘柄への過度な偏りを30%で制限</small>
+            <strong>Cluster confidence</strong>
+            <small>資金源だけで人を断定せず、複数の一致信号を要求</small>
           </div>
           <div>
             <span>03</span>
-            <strong>Transparent changes</strong>
-            <small>採用・除外・ルール変更の根拠を公開</small>
+            <strong>Market-cap weight</strong>
+            <small>採用後の指数変動は時価総額比率で加重平均</small>
           </div>
         </div>
       </section>
 
-      <section className="closing">
+      <section className="closing" id="launch">
         <div className="shell closing-inner">
           <div>
-            <span className="section-label light">THE RESEARCH STARTS HERE</span>
-            <h2>ミーム市場を見る、新しい基準。</h2>
+            <span className="section-label light">TOKEN RELEASE STATUS</span>
+            <h2>MT5RはDevnetから検証する。</h2>
+            <p>
+              まず無価値の研究トークンで発行・メタデータ・権限失効を検証し、
+              指数連動の裏付け・償還・法務が固まるまでメインネット販売は行いません。
+            </p>
           </div>
-          <a className="button light-button" href="#top">
-            Back to top <span aria-hidden="true">↑</span>
+          <a className="button light-button" href="/token/metadata.json">
+            Metadata
           </a>
         </div>
       </section>
@@ -294,12 +198,12 @@ export default function Home() {
           <span className="brand-mark">M5</span>
           <span>
             Meme Top 5
-            <small>Research Index</small>
+            <small>Human Demand Index</small>
           </span>
         </div>
         <p>
-          MT5は研究用プロトタイプです。暗号資産、金融商品、投資助言、価値保証を
-          提供するものではありません。
+          MT5は研究用プロトタイプです。暗号資産、金融商品、投資助言、価値保証、
+          保管、償還、トークン販売を提供するものではありません。
         </p>
         <span>© 2026 MT5 Research</span>
       </footer>

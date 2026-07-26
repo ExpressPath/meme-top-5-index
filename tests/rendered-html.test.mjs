@@ -28,11 +28,11 @@ test("renders the MT5 public index page", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>MT5 — Meme Top 5 Index<\/title>/i);
-  assert.match(html, /ミーム市場を/);
-  assert.match(html, /DOGE/);
+  assert.match(html, /<title>MT5 — Human Demand Meme Index<\/title>/i);
+  assert.match(html, /ウォレットではなく/);
+  assert.match(html, /BONK/);
   assert.match(html, /算出ルール/);
-  assert.match(html, /投資商品ではありません/);
+  assert.match(html, /ユーザー数とは表示しません/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
@@ -41,6 +41,8 @@ test("serves the public index API", async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.symbol, "MT5");
-  assert.equal(body.isLive, false);
+  assert.equal(typeof body.isLive, "boolean");
+  assert.match(body.dataMode, /^(live-human-estimate|live-market-proxy|fallback)$/);
   assert.equal(body.constituents.length, 5);
+  assert.equal(body.methodologyVersion, "2.0");
 });
