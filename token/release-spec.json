@@ -1,0 +1,27 @@
+{
+  "network": "solana-devnet",
+  "program": "token-2022",
+  "name": "MT5 Research Index",
+  "symbol": "MT5R",
+  "decimals": 6,
+  "supply": "1000000000",
+  "metadataUri": "https://meme-top-5-index.provf-official.chatgpt.site/token/metadata.json",
+  "mintAddress": "ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt",
+  "tokenAccount": "FotYC7bBBjApAdMxRF9F88hLUdDHQm9u4FukGJyFtxzB",
+  "explorerUrl": "https://explorer.solana.com/address/ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt?cluster=devnet",
+  "deployedAt": "2026-07-27T00:14:52.459Z",
+  "mintAuthorityAfterInitialMint": null,
+  "freezeAuthority": null,
+  "metadataUpdateAuthority": null,
+  "metadataPointerAuthority": null,
+  "transferFeeBasisPoints": 0,
+  "status": "devnet-deployed",
+  "mainnetApproved": false,
+  "redemption": false,
+  "backing": false,
+  "notes": [
+    "Devnet token has no monetary value.",
+    "It does not track the MT5 index price by itself.",
+    "A mainnet release requires legal review, reserve/custody design, oracle design and an explicit final approval."
+  ]
+}

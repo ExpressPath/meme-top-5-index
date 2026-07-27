@@ -1,40 +1,64 @@
-# MT5 — Meme Top 5 Index
+# MT5 — Active Buyer Meme Index
 
-主要ミームコイン5銘柄を、公開ルールで追跡する研究用インデックスの公式サイトです。
+MT5 is a public research index for Solana meme coins. It observes the most
+recent 30 minutes of primary-pool trades, estimates active buyers after
+deduplication and basic automation filtering, ranks five coins by buy USD, and
+weights their price movement by verified market capitalization.
 
-## Product status
+Public site: <https://meme-top-5-index.provf-official.chatgpt.site>
 
-- Research preview
-- Demo snapshot only
-- Not an investment product
-- Not investment advice
-- No token sale or custody
+## Online data path
 
-## Methodology preview
+1. DEX Screener and GeckoTerminal discover and price eligible Solana tokens.
+2. GeckoTerminal pool trades provide transaction hash, signing wallet, side,
+   timestamp, and USD volume.
+3. The server removes duplicate transactions, sub-1-USD dust-only wallets, and
+   high-frequency burst wallets.
+4. The API returns observed wallets, estimated active buyers, 30-minute buy
+   USD, and whether the 300-trade response covers the full window.
+5. When GeckoTerminal is rate-limited, a D1 lease allows one Helius pool poll
+   per minute. It rotates over the selected coins, requests at most five new
+   transactions, and stores normalized observations without a local process.
+6. Jupiter and Helius provide independent price, supply, authority, and mint
+   verification when production keys are configured.
+7. D1 can also receive Helius or Birdeye observations through the authenticated
+   `/api/ingest/trades` endpoint.
 
-1. Minimum market capitalization: 100M USD
-2. Minimum 24-hour volume: 10M USD
-3. Select the five largest eligible assets
-4. Market-cap weighting with a 30% single-asset cap
-5. Publish scheduled and emergency constituent changes
+The estimate is wallet-derived and is not proof of a natural person. When a
+30-minute window contains more than 300 trades, the public values are labeled
+as lower bounds. Token NAV remains fail-closed until the stricter human-entity,
+market-consensus, on-chain, custody, audit, and legal release gates pass.
 
 ## Development
 
 ```bash
 npm install
+npm test
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+The public API is available at `/api/index`. Its cache policy refreshes the
+online computation every 60 seconds and serves the last successful snapshot
+during short source interruptions.
 
-## Validation
+## Optional collectors
+
+The website and its request-driven Helius fallback work online without a local
+collector. Optional long-running Helius and
+Birdeye collectors can add cross-pool observations to D1:
 
 ```bash
-npm test
-npm audit --omit=dev
+npm run collector
+npm run collector:birdeye
 ```
 
-## Disclaimer
+Environment variable names and free-plan budgets are documented in
+`.env.example`. Local secrets must never be committed.
 
-MT5 is a research prototype. It does not provide an investment product,
-financial advice, price guarantees, custody, redemption, or token sales.
+## Research token
+
+`MT5R` is a non-valued Solana devnet research token. It is not an index share,
+redeemable asset, deposit product, or mainnet investment token.
+
+Devnet mint:
+[`ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt`](https://explorer.solana.com/address/ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt?cluster=devnet)

@@ -1,0 +1,26 @@
+{
+  "network": "solana-devnet",
+  "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "mintAddress": "ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt",
+  "tokenAccount": "FotYC7bBBjApAdMxRF9F88hLUdDHQm9u4FukGJyFtxzB",
+  "name": "MT5 Research Index",
+  "symbol": "MT5R",
+  "decimals": 6,
+  "supply": "1000000000",
+  "metadataUri": "https://meme-top-5-index.provf-official.chatgpt.site/token/metadata.json",
+  "mintAuthority": null,
+  "freezeAuthority": null,
+  "metadataUpdateAuthority": null,
+  "metadataPointerAuthority": null,
+  "status": "research-only",
+  "deployedAt": "2026-07-27T00:14:52.459Z",
+  "explorerUrl": "https://explorer.solana.com/address/ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt?cluster=devnet",
+  "verification": {
+    "supplyAtomic": "1000000000000000",
+    "tokenAccountBalanceAtomic": "1000000000000000",
+    "metadataOnMint": true,
+    "immutableMint": true,
+    "immutableMetadata": true,
+    "immutableMetadataPointer": true
+  }
+}

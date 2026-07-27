@@ -9,9 +9,14 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test": "npm run test:unit && npm run build && node --test tests/rendered-html.test.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/*.unit.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "collector": "node scripts/helius-collector.mjs",
+    "collector:birdeye": "node scripts/collector.mjs",
+    "token:devnet": "node scripts/create-devnet-token.mjs",
+    "token:mainnet:check": "node scripts/check-mainnet-readiness.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -21,6 +26,9 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/spl-token-metadata": "^0.1.6",
+    "@solana/web3.js": "^1.98.4",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

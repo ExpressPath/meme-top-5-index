@@ -1,0 +1,104 @@
+{
+  "version": "1.1",
+  "updatedAt": "2026-07-27",
+  "policy": {
+    "minimumIndependentMarketSources": 2,
+    "maximumPriceDivergenceBps": 500,
+    "maximumMarketCapDivergenceBps": 2500,
+    "maximumSnapshotAgeSeconds": 90,
+    "failClosed": true,
+    "walletsAreUsers": false
+  },
+  "sources": [
+    {
+      "id": "dexscreener",
+      "role": [
+        "token discovery",
+        "price",
+        "market cap",
+        "liquidity",
+        "volume",
+        "transaction counts"
+      ],
+      "authentication": "none",
+      "cost": "free public API",
+      "officialDocumentation": "https://docs.dexscreener.com/api/reference",
+      "terms": "https://docs.dexscreener.com/api/api-terms-and-conditions",
+      "productionRole": "independent market source A"
+    },
+    {
+      "id": "geckoterminal",
+      "role": [
+        "token discovery",
+        "price",
+        "verified market cap when available",
+        "liquidity",
+        "volume",
+        "buyer-wallet counts",
+        "primary-pool trade signatures",
+        "30-minute buy USD"
+      ],
+      "authentication": "none",
+      "cost": "free keyless public API",
+      "officialDocumentation": "https://docs.coingecko.com/docs/keyless-public-api",
+      "rateLimit": "30 calls per minute",
+      "productionRole": "independent market source B and online active-buyer observation",
+      "limitations": [
+        "Pool trades are limited to the most recent 300 observations.",
+        "The service marks saturated 30-minute windows as lower bounds.",
+        "A signing wallet is not treated as a verified person."
+      ]
+    },
+    {
+      "id": "jupiter-price",
+      "role": [
+        "independent price cross-check",
+        "liquidity",
+        "market cap recomputed from Helius-verified onchain supply"
+      ],
+      "authentication": "encrypted API key",
+      "cost": "free plan, 1 request per second",
+      "officialDocumentation": "https://developers.jup.ag/docs/api-reference/price",
+      "pricing": "https://developers.jup.ag/pricing",
+      "productionRole": "independent market source C and fallback when GeckoTerminal is rate-limited",
+      "attribution": "Powered by Jupiter"
+    },
+    {
+      "id": "birdeye-standard",
+      "role": [
+        "trade samples",
+        "wallet and signer observations",
+        "bot heuristics"
+      ],
+      "authentication": "API key",
+      "cost": "free Standard plan with a finite monthly allowance",
+      "officialDocumentation": "https://docs.birdeye.so/reference/get-defi-v3-token-txs",
+      "pricing": "https://docs.birdeye.so/docs/pricing",
+      "productionRole": "identity research input only",
+      "limitations": [
+        "Free WebSocket access is not assumed.",
+        "Wallet observations are not treated as people.",
+        "This source cannot make token NAV publishable without clustering confidence and coverage."
+      ]
+    },
+    {
+      "id": "helius-rpc",
+      "role": [
+        "mint existence",
+        "supply and decimals",
+        "mint authority",
+        "freeze authority",
+        "request-driven primary-pool transaction sampling"
+      ],
+      "authentication": "encrypted API key",
+      "cost": "free plan, 1 million monthly credits",
+      "officialDocumentation": "https://www.helius.dev/docs/billing/credits",
+      "rateLimits": "https://www.helius.dev/docs/billing/rate-limits",
+      "productionRole": "independent on-chain verification and a D1-leased demand fallback capped at one pool per minute and five new transactions per poll",
+      "limitations": [
+        "Not counted as a third market-price source.",
+        "The free plan has no production SLA."
+      ]
+    }
+  ]
+}
