@@ -5,6 +5,10 @@ import {
 } from "../../../lib/backing-engine";
 import { readLatestIndexSnapshot } from "../../../lib/index-store";
 import { fallbackSnapshot } from "../../../lib/index-engine";
+import {
+  compareReserveReports,
+  verifyOnchainVault,
+} from "../../../lib/vault-verifier";
 
 type QuorumRow = {
   reportId: string;
@@ -13,6 +17,16 @@ type QuorumRow = {
   signerCount: number;
   signers: string;
   latestReceivedAt: number;
+};
+
+type RuntimeEnv = {
+  DB?: D1Database;
+  HELIUS_API_KEY?: string;
+  MT5_VAULT_OWNER_ADDRESS?: string;
+  MT5_MULTISIG_ADDRESS?: string;
+  MT5_SHARE_MINT_ADDRESS?: string;
+  MT5_FREEZE_AUTHORITY_ADDRESS?: string;
+  MT5_CASH_MINT_ADDRESS?: string;
 };
 
 export async function GET() {
@@ -24,20 +38,39 @@ export async function GET() {
   const quorum = await readLatestReserveQuorum(runtimeEnv.DB).catch(
     () => null,
   );
+  const onchain = await verifyOnchainVault(snapshot, {
+    ownerAddress: runtimeEnv.MT5_VAULT_OWNER_ADDRESS,
+    multisigAddress: runtimeEnv.MT5_MULTISIG_ADDRESS,
+    shareMintAddress: runtimeEnv.MT5_SHARE_MINT_ADDRESS,
+    freezeAuthorityAddress: runtimeEnv.MT5_FREEZE_AUTHORITY_ADDRESS,
+    cashMintAddress: runtimeEnv.MT5_CASH_MINT_ADDRESS,
+    heliusApiKey: runtimeEnv.HELIUS_API_KEY,
+  });
+  const onchainReserve = onchain.report
+    ? evaluateReserveReport(snapshot, onchain.report)
+    : null;
 
   if (!quorum) {
+    const reasons = [
+      ...onchain.reasons,
+      "実保管資産の署名済みレポートが2者から届いていません",
+      "カストディ接続と法務承認が完了するまで発行・入金は停止します",
+    ];
     return Response.json(
       {
         asOf: snapshot.asOf,
-        status: "unconfigured",
+        status: onchain.configured ? "blocked" : "unconfigured",
         releaseEligible: false,
         attestationQuorum: { required: 2, observed: 0, signers: [] },
         plan,
         reserve: null,
-        reasons: [
-          "実保管資産の署名済みレポートが2者から届いていません",
-          "カストディ接続と法務承認が完了するまで発行・入金は停止します",
-        ],
+        onchain: {
+          ...onchain,
+          report: undefined,
+          reserve: onchainReserve,
+        },
+        reconciliation: null,
+        reasons,
       },
       { headers: publicCacheHeaders() },
     );
@@ -45,11 +78,17 @@ export async function GET() {
 
   const report = JSON.parse(quorum.payload) as ReserveReport;
   const reserve = evaluateReserveReport(snapshot, report);
+  const reconciliation = onchain.report
+    ? compareReserveReports(report, onchain.report)
+    : null;
   const signers = quorum.signers.split(",").filter(Boolean);
   const releaseEligible =
     quorum.signerCount >= 2 &&
     reserve.ready &&
-    snapshot.publication.tokenNavEligible;
+    snapshot.publication.tokenNavEligible &&
+    onchain.verified &&
+    onchainReserve?.ready === true &&
+    reconciliation?.matches === true;
 
   return Response.json(
     {
@@ -66,10 +105,20 @@ export async function GET() {
       },
       plan,
       reserve,
+      onchain: {
+        ...onchain,
+        report: undefined,
+        reserve: onchainReserve,
+      },
+      reconciliation,
       reasons: releaseEligible
         ? []
         : [
             ...reserve.reasons,
+            ...onchain.reasons,
+            ...(reconciliation && !reconciliation.matches
+              ? ["署名済み準備資産報告がオンチェーン残高と一致しません"]
+              : []),
             ...(!snapshot.publication.tokenNavEligible
               ? ["指数側のNAV公開条件が未達です"]
               : []),
@@ -108,11 +157,19 @@ function publicCacheHeaders() {
   };
 }
 
-async function getRuntimeEnv(): Promise<{ DB?: D1Database }> {
+async function getRuntimeEnv(): Promise<RuntimeEnv> {
   try {
     const workers = await import("cloudflare:workers");
-    return workers.env as unknown as { DB?: D1Database };
+    return workers.env as unknown as RuntimeEnv;
   } catch {
-    return {};
+    return {
+      HELIUS_API_KEY: process.env.HELIUS_API_KEY,
+      MT5_VAULT_OWNER_ADDRESS: process.env.MT5_VAULT_OWNER_ADDRESS,
+      MT5_MULTISIG_ADDRESS: process.env.MT5_MULTISIG_ADDRESS,
+      MT5_SHARE_MINT_ADDRESS: process.env.MT5_SHARE_MINT_ADDRESS,
+      MT5_FREEZE_AUTHORITY_ADDRESS:
+        process.env.MT5_FREEZE_AUTHORITY_ADDRESS,
+      MT5_CASH_MINT_ADDRESS: process.env.MT5_CASH_MINT_ADDRESS,
+    };
   }
 }

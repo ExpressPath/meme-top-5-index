@@ -92,3 +92,29 @@ export const reserveReports = sqliteTable(
     index("reserve_reports_as_of_idx").on(table.asOf),
   ],
 );
+
+export const oracleAttestations = sqliteTable(
+  "oracle_attestations",
+  {
+    digest: text("digest").notNull(),
+    keyId: text("key_id").notNull(),
+    signature: text("signature").notNull(),
+    asOf: integer("as_of").notNull(),
+    receivedAt: integer("received_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.digest, table.keyId] }),
+    index("oracle_attestations_received_idx").on(table.receivedAt),
+  ],
+);
+
+export const shadowDailyStatus = sqliteTable("shadow_daily_status", {
+  day: text("day").primaryKey(),
+  samples: integer("samples").notNull().default(0),
+  indexReadySamples: integer("index_ready_samples").notNull().default(0),
+  backingReadySamples: integer("backing_ready_samples").notNull().default(0),
+  oracleReadySamples: integer("oracle_ready_samples").notNull().default(0),
+  fullyReadySamples: integer("fully_ready_samples").notNull().default(0),
+  failedSamples: integer("failed_samples").notNull().default(0),
+  lastSeenAt: integer("last_seen_at").notNull(),
+});

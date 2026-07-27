@@ -75,10 +75,19 @@ test("serves fail-closed backing and public security metadata", async () => {
   assert.equal(backing.releaseEligible, false);
   assert.equal(backing.plan.targetReserveRatioBps, 10200);
   assert.equal(backing.attestationQuorum.required, 2);
+  assert.equal(backing.onchain.status, "unconfigured");
 
   const securityResponse = await render("/api/security");
   assert.equal(securityResponse.status, 200);
   const security = await securityResponse.json();
   assert.equal(security.snapshotSigning.algorithm, "Ed25519");
   assert.equal(security.writeBoundary.authentication, "HMAC-SHA256");
+  assert.equal(security.externalOracleAttestations.required, 2);
+
+  const shadowResponse = await render("/api/shadow-readiness");
+  assert.equal(shadowResponse.status, 503);
+  const shadow = await shadowResponse.json();
+  assert.equal(shadow.ready, false);
+  assert.equal(shadow.requiredConsecutiveDays, 30);
+  assert.equal(shadow.policy.minimumFullyReadyRatio, 0.99);
 });

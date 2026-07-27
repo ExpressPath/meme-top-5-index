@@ -44,3 +44,4 @@ worker-configuration.d.ts
 /outputs/
 /work/
 /.secrets/
+/token/evidence/private/

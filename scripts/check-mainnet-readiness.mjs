@@ -2,16 +2,47 @@
 
 import { readFile } from "node:fs/promises";
 import { createHash, createPublicKey, verify } from "node:crypto";
+import { isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const gateUrl = new URL("../token/mainnet-release-gate.json", import.meta.url);
 const gate = JSON.parse(await readFile(gateUrl, "utf8"));
+const evidenceUrl = new URL("../token/release-evidence.json", import.meta.url);
+const evidence = JSON.parse(await readFile(evidenceUrl, "utf8"));
+const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const indexUrl =
   process.env.MT5_INDEX_URL ??
   "https://mt5-online-index.meme-top-5-index.workers.dev/api/index";
 const failures = [];
 
-for (const [name, passed] of Object.entries(gate.checks ?? {})) {
-  if (passed !== true) failures.push(`release gate: ${name}`);
+for (const checkId of gate.evidenceRequirements ?? []) {
+  const record = evidence.records?.find((item) => item.id === checkId);
+  if (!record || record.status !== "approved") {
+    failures.push(`release evidence pending: ${checkId}`);
+    continue;
+  }
+  if (
+    !record.artifactPath ||
+    !record.sha256 ||
+    !record.approvedBy ||
+    !record.approvedAt ||
+    !record.reference
+  ) {
+    failures.push(`release evidence incomplete: ${checkId}`);
+    continue;
+  }
+  try {
+    const artifactPath = isAbsolute(record.artifactPath)
+      ? record.artifactPath
+      : resolve(projectRoot, record.artifactPath);
+    const artifact = await readFile(artifactPath);
+    const digest = createHash("sha256").update(artifact).digest("hex");
+    if (digest !== record.sha256) {
+      failures.push(`release evidence hash mismatch: ${checkId}`);
+    }
+  } catch {
+    failures.push(`release evidence artifact unavailable: ${checkId}`);
+  }
 }
 
 try {
@@ -68,6 +99,27 @@ try {
     if (requirements.snapshotSignatureRequired) {
       await verifySnapshotResponse(response, body, indexUrl, failures);
     }
+    if (requirements.minimumIndependentOracleSigners > 0) {
+      const digest = response.headers.get("content-digest");
+      if (!digest) {
+        failures.push("index digest is unavailable for oracle attestations");
+      } else {
+        const attestationResponse = await fetch(
+          new URL(
+            `/api/oracle-attestations?digest=${encodeURIComponent(digest)}`,
+            indexUrl,
+          ),
+          { signal: AbortSignal.timeout(10_000) },
+        );
+        const attestations = await attestationResponse.json();
+        if (
+          Number(attestations?.observed ?? 0) <
+          requirements.minimumIndependentOracleSigners
+        ) {
+          failures.push("fewer than two independent oracle attestations");
+        }
+      }
+    }
   }
 } catch (error) {
   failures.push(
@@ -109,10 +161,77 @@ try {
     ) {
       failures.push("reserve basket drift exceeds 100 bps");
     }
+    if (
+      requirements.onchainVaultRequired &&
+      backing?.onchain?.verified !== true
+    ) {
+      failures.push("on-chain Squads vault verification has not passed");
+    }
+    if (
+      requirements.squadsAuthorityRequired &&
+      backing?.onchain?.authorityChecks?.multisigOwnedBySquads !== true
+    ) {
+      failures.push("configured multisig is not verified as Squads v4");
+    }
+    if (
+      Number(
+        backing?.reconciliation?.maximumObservedDifferenceBps ?? Infinity,
+      ) > requirements.maximumAttestationToChainDifferenceBps
+    ) {
+      failures.push(
+        "signed reserve report differs from on-chain balances by more than 10 bps",
+      );
+    }
   }
 } catch (error) {
   failures.push(
     `backing readiness check failed: ${
+      error instanceof Error ? error.message : String(error)
+    }`,
+  );
+}
+
+try {
+  const shadowUrl = new URL(
+    gate.shadowRequirements.endpoint,
+    indexUrl,
+  );
+  const response = await fetch(shadowUrl, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) {
+    failures.push(`shadow-readiness endpoint returned HTTP ${response.status}`);
+  } else {
+    const shadow = await response.json();
+    const requirements = gate.shadowRequirements;
+    if (shadow?.ready !== true) {
+      failures.push(
+        `shadow publication has ${Number(shadow?.consecutivePassingDays ?? 0)}/${requirements.requiredConsecutiveDays} consecutive passing days`,
+      );
+    }
+    if (
+      Number(shadow?.policy?.minimumSamplesPerCompletedDay ?? 0) !==
+      requirements.minimumSamplesPerCompletedDay
+    ) {
+      failures.push("shadow publication sample threshold does not match policy");
+    }
+    if (
+      Number(shadow?.policy?.minimumFullyReadyRatio ?? 0) !==
+      requirements.minimumFullyReadyRatio
+    ) {
+      failures.push("shadow publication ready-ratio policy does not match");
+    }
+    if (
+      Number(shadow?.policy?.maximumFailureRatio ?? Infinity) !==
+      requirements.maximumFailureRatio
+    ) {
+      failures.push("shadow publication failure-ratio policy does not match");
+    }
+  }
+} catch (error) {
+  failures.push(
+    `shadow readiness check failed: ${
       error instanceof Error ? error.message : String(error)
     }`,
   );

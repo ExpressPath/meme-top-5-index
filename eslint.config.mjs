@@ -1,18 +1,45 @@
+import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
+export default defineConfig([
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
+    ".wrangler/**",
+    "dist/**",
+    "node_modules/**",
     "out/**",
-    "build/**",
-    "next-env.d.ts",
+    "worker-configuration.d.ts",
   ]),
+  {
+    ...js.configs.recommended,
+    files: ["**/*.{js,mjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: ["**/*.{ts,tsx}"],
+  })),
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: {
+      "react-hooks": reactHooks,
+    },
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+    },
+  },
 ]);
-
-export default eslintConfig;

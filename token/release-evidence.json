@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "productId": "mt5-index-vault-share-mainnet",
+  "updatedAt": null,
+  "records": [
+    {
+      "id": "writtenLegalOpinionApproved",
+      "requiredRole": "Japan-qualified external legal counsel",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "distributionPartnerApproved",
+      "requiredRole": "registered distribution or crypto-asset service partner",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "custodianSelected",
+      "requiredRole": "authorized company officer plus custody counterparty",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "smartContractAuditPassed",
+      "requiredRole": "independent Solana security reviewer",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "incidentRunbookApproved",
+      "requiredRole": "security and operations owners",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "thirtyDayShadowPublicationPassed",
+      "requiredRole": "independent operations reviewer",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    },
+    {
+      "id": "explicitMainnetApproval",
+      "requiredRole": "authorized company officer",
+      "status": "pending",
+      "artifactPath": null,
+      "sha256": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "reference": null
+    }
+  ]
+}

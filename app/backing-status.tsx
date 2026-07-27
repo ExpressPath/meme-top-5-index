@@ -21,6 +21,14 @@ type BackingStatusResponse = {
     reserveRatioBps: number;
     maximumWeightDriftBps: number;
   };
+  onchain?: {
+    status: "unconfigured" | "blocked" | "verified" | "error";
+    verified: boolean;
+  };
+  reconciliation?: null | {
+    matches: boolean;
+    maximumObservedDifferenceBps: number;
+  };
   reasons: string[];
 };
 
@@ -93,6 +101,22 @@ export default function BackingStatus() {
         指数バスケット100%に現金バッファ2%を加え、独立した2者が同一の保管資産レポートへ署名した場合だけ、
         償還NAVの公開候補になります。現在は実カストディ未接続のため発行・入金を停止しています。
       </p>
+      <div className="backing-verification">
+        <span>
+          On-chain Vault:{" "}
+          <strong>{status?.onchain?.status ?? "unconfigured"}</strong>
+        </span>
+        <span>
+          Attestation ↔ Chain:{" "}
+          <strong>
+            {status?.reconciliation
+              ? status.reconciliation.matches
+                ? "matched"
+                : "mismatch"
+              : "pending"}
+          </strong>
+        </span>
+      </div>
       <div className="backing-links">
         <a href="/api/backing">Backing API</a>
         <a href="/api/security">Security API</a>

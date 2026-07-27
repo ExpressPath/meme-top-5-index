@@ -3,7 +3,8 @@
 MT5 is a public research index for Solana meme coins. It observes the most
 recent 30 minutes of primary-pool trades, estimates active buyers after
 deduplication and basic automation filtering, ranks five coins by buy USD, and
-weights their price movement by verified market capitalization.
+weights their price movement by 35%-capped verified market capitalization with
+divisor continuity.
 
 Public site: <https://mt5-online-index.meme-top-5-index.workers.dev>
 
@@ -25,6 +26,10 @@ Public site: <https://mt5-online-index.meme-top-5-index.workers.dev>
    verification when production keys are configured.
 7. D1 can also receive Helius or Birdeye observations through the authenticated
    `/api/ingest/trades` endpoint.
+8. `/api/backing` verifies configured Squads v4 and Token-2022 authorities,
+   values the public Vault, and reconciles it with two signed reserve reports.
+9. Two external Ed25519 oracle attesters must sign the exact published index
+   digest before the Mainnet gate can pass.
 
 The estimate is wallet-derived and is not proof of a natural person. When a
 30-minute window contains more than 300 trades, the public values are labeled
@@ -41,7 +46,22 @@ npm run dev
 
 The public API is available at `/api/index`. Its cache policy refreshes the
 online computation every 60 seconds and serves the last successful snapshot
-during short source interruptions.
+during short source interruptions. `/api/backing` verifies signed reserve
+reports against the public on-chain Vault, while `/api/shadow-readiness`
+publishes the immutable 30-day Mainnet rehearsal scorecard collected by the
+Cloudflare scheduled worker.
+
+Production preparation:
+
+```bash
+npm run token:devnet:verify
+npm run token:mainnet:check
+```
+
+The Mainnet operating model and approval packets are under `docs/`. Release
+approvals are recorded by hashing the actual counsel, custody, audit, shadow
+operation, and officer artifacts with `npm run release:evidence -- ...`.
+Editing a release boolean does not pass the gate.
 
 ## Optional collectors
 
@@ -64,3 +84,8 @@ redeemable asset, deposit product, or mainnet investment token.
 
 Devnet mint:
 [`ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt`](https://explorer.solana.com/address/ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt?cluster=devnet)
+
+The intended Mainnet product does not reuse this immutable research mint. It
+requires a new Token-2022 mint whose mint and freeze authorities are dedicated
+Squads Vault PDAs and whose initial supply is zero until every release gate
+passes.

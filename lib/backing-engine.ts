@@ -108,7 +108,7 @@ export function evaluateReserveReport(
     .filter((holding) => !holding.recognized)
     .map((holding) => holding.tokenAddress);
   const missingConstituents = snapshot.constituents
-    .filter((coin) => !basketWeights.has(coin.tokenAddress))
+    .filter((coin) => (basketWeights.get(coin.tokenAddress) ?? 0) <= 0)
     .map((coin) => coin.tokenAddress);
   const ageSeconds = Math.max(0, nowSeconds - report.asOf);
   const reasons: string[] = [];

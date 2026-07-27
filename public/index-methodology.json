@@ -42,6 +42,8 @@
     "maximumWeightDriftBps": 100,
     "maximumReportAgeSeconds": 86400,
     "minimumIndependentAttestations": 2,
+    "onchainVaultVerification": "Squads v4 owner, Token-2022 authorities, token balances and supply",
+    "maximumAttestationToChainDifferenceBps": 10,
     "status": "design target; custody is not connected"
   },
   "publication": {
@@ -50,7 +52,8 @@
     "tokenNavRequiresHumanEstimate": true,
     "tokenNavRequiresFiveConsensusConstituents": true,
     "walletDerivedBuyerEstimateIsNotHumanIdentity": true,
-    "signedSnapshots": "Ed25519 signature and SHA-256 content digest"
+    "signedSnapshots": "Ed25519 signature and SHA-256 content digest",
+    "externalOracleAttestations": "two independent Ed25519 signers over the exact content digest"
   },
   "limitations": [
     "A blockchain address is not a person.",

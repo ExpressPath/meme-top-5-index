@@ -9,11 +9,13 @@
     "writeRateLimit": "60 requests per minute per network-address and signer pair",
     "inputValidation": "256 KiB maximum, strict source and Solana identifier validation",
     "reserveQuorum": "two distinct configured signers must attest to an identical normalized report",
+    "onchainReconciliation": "attested reserve quantities, USDC and share supply must match the public Squads Vault within 10 bps",
+    "oracleQuorum": "two external Ed25519 attestations over the exact signed index digest",
     "failClosed": true
   },
   "releaseBlocks": [
     "no custody connection",
-    "no production vault implementation",
+    "no production Squads addresses configured",
     "no smart-contract audit",
     "no written legal approval",
     "no thirty-day shadow-publication evidence"

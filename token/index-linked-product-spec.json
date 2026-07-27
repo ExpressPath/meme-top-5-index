@@ -1,6 +1,6 @@
 {
-  "version": "0.2",
-  "status": "production-architecture-draft",
+  "version": "0.3",
+  "status": "release-controls-implemented-external-approvals-pending",
   "network": "solana-mainnet-beta",
   "workingName": "MT5 Index Vault Share",
   "trackingModel": "fully-backed redeemable basket vault share",
@@ -23,8 +23,12 @@
     "permissionless": false,
     "creationRedemption": "approved participant only",
     "primaryMarketKyc": true,
-    "mintAuthority": "multisig controlled issuance program",
-    "freezeAuthority": "compliance and incident-response multisig",
+    "tokenProgram": "Solana Token-2022",
+    "customOnchainProgram": false,
+    "mintAuthority": "dedicated Squads v4 Vault PDA",
+    "freezeAuthority": "separate Squads v4 incident Vault PDA",
+    "multisigThreshold": "2-of-3",
+    "nonEmergencyTimelockSeconds": 86400,
     "initialPublicSale": false
   },
   "oracle": {
@@ -36,7 +40,7 @@
     "publicationIntervalSeconds": 30
   },
   "custody": {
-    "model": "segregated on-chain vault plus regulated operational custody",
+    "model": "segregated Squads v4 on-chain vault plus regulated operational custody",
     "proofOfReserves": "public vault balances and identical daily holdings report attested by at least two independent configured signers",
     "targetReserveRatioBps": 10200,
     "maximumBasketWeightDriftBps": 100,
@@ -49,13 +53,13 @@
     "distribution": "requires appropriately registered partner if offered to the public",
     "status": "not-approved",
     "officialReferences": [
-      "https://www.fsa.go.jp/policy/virtual_currency/index_2.html",
-      "https://www.fsa.go.jp/common/law/guide/kinyushohin/04a.html",
-      "https://www.fsa.go.jp/news/r7/sonota/20260313-02/20260313-02.html"
+      "https://www.fsa.go.jp/common/shinsei/denanchuukai/index.html",
+      "https://www.fsa.go.jp/menkyo/menkyoj/kasoutuka.pdf",
+      "https://www.fsa.go.jp/singi/singi_kinyu/angoshisanseido_wg/gijishidai/20251107/02.pdf"
     ]
   },
   "security": {
-    "smartContractAudit": "required",
+    "smartContractAudit": "independent review of integration and relied-on third-party audit reports required",
     "multisig": "required",
     "timelock": "required for non-emergency governance changes",
     "bugBounty": "required before public deposits",

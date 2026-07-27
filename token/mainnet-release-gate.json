@@ -1,22 +1,16 @@
 {
-  "version": "1.1",
+  "version": "2.0",
   "network": "solana-mainnet-beta",
-  "status": "blocked",
-  "checks": {
-    "writtenLegalOpinionApproved": false,
-    "distributionPartnerApproved": false,
-    "custodianSelected": false,
-    "basketVaultImplemented": false,
-    "smartContractAuditPassed": false,
-    "multisigConfigured": false,
-    "oracleHasTwoIndependentSigners": false,
-    "reserveReportsHaveTwoIndependentSigners": false,
-    "reserveRatioAtLeast102Percent": false,
-    "basketWeightDriftWithin100Bps": false,
-    "incidentRunbookApproved": false,
-    "thirtyDayShadowPublicationPassed": false,
-    "explicitMainnetApproval": false
-  },
+  "status": "blocked-until-evidence-verifies",
+  "evidenceRequirements": [
+    "writtenLegalOpinionApproved",
+    "distributionPartnerApproved",
+    "custodianSelected",
+    "smartContractAuditPassed",
+    "incidentRunbookApproved",
+    "thirtyDayShadowPublicationPassed",
+    "explicitMainnetApproval"
+  ],
   "liveIndexRequirements": {
     "methodologyVersion": "4.0",
     "publicationState": "publishable",
@@ -25,18 +19,37 @@
     "requiredConsensusConstituents": 5,
     "requiredChainVerifiedConstituents": 5,
     "requiredSafeAuthorityConstituents": 5,
-    "snapshotSignatureRequired": true
+    "snapshotSignatureRequired": true,
+    "minimumIndependentOracleSigners": 2
   },
   "backingRequirements": {
     "endpoint": "/api/backing",
     "releaseEligible": true,
     "minimumAttestations": 2,
     "minimumReserveRatioBps": 10200,
-    "maximumWeightDriftBps": 100
+    "maximumWeightDriftBps": 100,
+    "onchainVaultRequired": true,
+    "squadsAuthorityRequired": true,
+    "maximumAttestationToChainDifferenceBps": 10
+  },
+  "shadowRequirements": {
+    "endpoint": "/api/shadow-readiness",
+    "requiredConsecutiveDays": 30,
+    "minimumSamplesPerCompletedDay": 1200,
+    "minimumFullyReadyRatio": 0.99,
+    "maximumFailureRatio": 0.01
+  },
+  "multisigRequirements": {
+    "implementation": "Squads Protocol v4",
+    "minimumMembers": 3,
+    "threshold": 2,
+    "configAuthority": null,
+    "requiredHardwareSigners": 2,
+    "timelockSeconds": 86400
   },
   "notes": [
-    "This file intentionally blocks minting and public deposits.",
-    "Changing booleans is not sufficient evidence; each approval must reference a signed artifact in a controlled release process.",
-    "Mainnet writes cost SOL and cannot be genuinely free."
+    "Release evidence is verified by artifact hash; editing a boolean cannot pass this gate.",
+    "The Squads Vault, Token-2022 mint authorities, reserve attestations and live index are verified online.",
+    "Mainnet writes cost SOL and require an authorized human wallet signature."
   ]
 }

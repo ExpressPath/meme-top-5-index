@@ -83,22 +83,8 @@ const worker = {
       controller.noRetry();
       throw new Error("CRON_SECRET is not configured");
     }
-    const request = new Request(
-      `https://mt5-scheduled.internal/api/index?scheduled=${controller.scheduledTime}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "X-MT5-Cron-Token": env.CRON_SECRET,
-        },
-      },
-    );
     ctx.waitUntil(
-      handler.fetch(request, env, ctx).then(async (response) => {
-        await response.arrayBuffer();
-        if (!response.ok) {
-          throw new Error(`Scheduled index refresh failed: HTTP ${response.status}`);
-        }
-      }),
+      runScheduledCycle(controller, env, ctx),
     );
   },
 };
@@ -123,4 +109,146 @@ function withSecurityHeaders(response: Response) {
     "max-age=31536000; includeSubDomains",
   );
   return secured;
+}
+
+async function runScheduledCycle(
+  controller: ScheduledController,
+  env: Env,
+  ctx: ExecutionContext,
+) {
+  await captureShadowObservation(controller.scheduledTime, env, ctx).catch(
+    async () => {
+      await recordShadowObservation(env.DB, controller.scheduledTime, {
+        indexReady: false,
+        backingReady: false,
+        oracleReady: false,
+        failed: true,
+      });
+    },
+  );
+
+  const request = new Request(
+    `https://mt5-scheduled.internal/api/index?scheduled=${controller.scheduledTime}`,
+    {
+      headers: {
+        Accept: "application/json",
+        "X-MT5-Cron-Token": env.CRON_SECRET!,
+      },
+    },
+  );
+  const response = await handler.fetch(request, env, ctx);
+  await response.arrayBuffer();
+  if (!response.ok) {
+    throw new Error(`Scheduled index refresh failed: HTTP ${response.status}`);
+  }
+}
+
+async function captureShadowObservation(
+  scheduledTime: number,
+  env: Env,
+  ctx: ExecutionContext,
+) {
+  const indexResponse = await handler.fetch(
+    new Request("https://mt5-scheduled.internal/api/index", {
+      headers: { Accept: "application/json" },
+    }),
+    env,
+    ctx,
+  );
+  if (!indexResponse.ok) {
+    throw new Error(`Shadow index read failed: HTTP ${indexResponse.status}`);
+  }
+  const digest = indexResponse.headers.get("content-digest");
+  const index = (await indexResponse.json()) as {
+    publication?: { state?: string; tokenNavEligible?: boolean };
+  };
+
+  const [backingResponse, oracleResponse] = await Promise.all([
+    handler.fetch(
+      new Request("https://mt5-scheduled.internal/api/backing", {
+        headers: { Accept: "application/json" },
+      }),
+      env,
+      ctx,
+    ),
+    digest
+      ? handler.fetch(
+          new Request(
+            `https://mt5-scheduled.internal/api/oracle-attestations?digest=${encodeURIComponent(digest)}`,
+            { headers: { Accept: "application/json" } },
+          ),
+          env,
+          ctx,
+        )
+      : Promise.resolve(
+          Response.json({ ready: false }, { status: 400 }),
+        ),
+  ]);
+  if (!backingResponse.ok || !oracleResponse.ok) {
+    throw new Error(
+      `Shadow dependency read failed: backing=${backingResponse.status}, oracle=${oracleResponse.status}`,
+    );
+  }
+  const backing = (await backingResponse.json()) as {
+    releaseEligible?: boolean;
+  };
+  const oracle = (await oracleResponse.json()) as { ready?: boolean };
+
+  await recordShadowObservation(env.DB, scheduledTime, {
+    indexReady:
+      index.publication?.state === "publishable" &&
+      index.publication.tokenNavEligible === true,
+    backingReady: backing.releaseEligible === true,
+    oracleReady: oracle.ready === true,
+    failed: false,
+  });
+}
+
+async function recordShadowObservation(
+  database: D1Database,
+  scheduledTime: number,
+  status: {
+    indexReady: boolean;
+    backingReady: boolean;
+    oracleReady: boolean;
+    failed: boolean;
+  },
+) {
+  const day = new Date(scheduledTime).toISOString().slice(0, 10);
+  const fullyReady =
+    status.indexReady &&
+    status.backingReady &&
+    status.oracleReady &&
+    !status.failed;
+  await database
+    .prepare(
+      `INSERT INTO shadow_daily_status (
+         day,
+         samples,
+         index_ready_samples,
+         backing_ready_samples,
+         oracle_ready_samples,
+         fully_ready_samples,
+         failed_samples,
+         last_seen_at
+       ) VALUES (?, 1, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(day) DO UPDATE SET
+         samples = samples + 1,
+         index_ready_samples = index_ready_samples + excluded.index_ready_samples,
+         backing_ready_samples = backing_ready_samples + excluded.backing_ready_samples,
+         oracle_ready_samples = oracle_ready_samples + excluded.oracle_ready_samples,
+         fully_ready_samples = fully_ready_samples + excluded.fully_ready_samples,
+         failed_samples = failed_samples + excluded.failed_samples,
+         last_seen_at = excluded.last_seen_at`,
+    )
+    .bind(
+      day,
+      Number(status.indexReady),
+      Number(status.backingReady),
+      Number(status.oracleReady),
+      Number(fullyReady),
+      Number(status.failed),
+      Math.floor(scheduledTime / 1000),
+    )
+    .run();
 }

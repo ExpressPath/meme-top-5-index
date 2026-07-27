@@ -1,5 +1,8 @@
 export async function GET() {
   const runtimeEnv = await getRuntimeEnv();
+  const externalOracleKeys = parsePublicKeys(
+    runtimeEnv.ORACLE_ATTESTER_PUBLIC_KEYS,
+  );
   return Response.json(
     {
       snapshotSigning: {
@@ -10,6 +13,14 @@ export async function GET() {
         signedEndpoint: "/api/index",
         signatureHeader: "X-MT5-Signature",
         digestHeader: "Content-Digest",
+      },
+      externalOracleAttestations: {
+        algorithm: "Ed25519",
+        required: 2,
+        configured: externalOracleKeys.length,
+        keys: externalOracleKeys,
+        submissionEndpoint: "/api/ingest/oracle-attestations",
+        lookupEndpoint: "/api/oracle-attestations?digest=<content-digest>",
       },
       writeBoundary: {
         authentication: "HMAC-SHA256",
@@ -37,18 +48,40 @@ export async function GET() {
 async function getRuntimeEnv(): Promise<{
   SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
   SNAPSHOT_SIGNING_KEY_ID?: string;
+  ORACLE_ATTESTER_PUBLIC_KEYS?: string;
 }> {
   try {
     const workers = await import("cloudflare:workers");
     return workers.env as unknown as {
       SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
       SNAPSHOT_SIGNING_KEY_ID?: string;
+      ORACLE_ATTESTER_PUBLIC_KEYS?: string;
     };
   } catch {
     return {
       SNAPSHOT_SIGNING_PUBLIC_KEY:
         process.env.SNAPSHOT_SIGNING_PUBLIC_KEY,
       SNAPSHOT_SIGNING_KEY_ID: process.env.SNAPSHOT_SIGNING_KEY_ID,
+      ORACLE_ATTESTER_PUBLIC_KEYS:
+        process.env.ORACLE_ATTESTER_PUBLIC_KEYS,
     };
+  }
+}
+
+function parsePublicKeys(value?: string) {
+  if (!value) return [];
+  try {
+    return Object.entries(JSON.parse(value) as Record<string, string>)
+      .filter(
+        ([keyId, publicKeyRawBase64]) =>
+          /^[A-Za-z0-9._-]{3,64}$/.test(keyId) &&
+          /^[A-Za-z0-9+/]{43}=$/.test(publicKeyRawBase64),
+      )
+      .map(([keyId, publicKeyRawBase64]) => ({
+        keyId,
+        publicKeyRawBase64,
+      }));
+  } catch {
+    return [];
   }
 }
