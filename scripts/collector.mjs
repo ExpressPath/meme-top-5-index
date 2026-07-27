@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import WebSocket from "ws";
-
 const required = ["BIRDEYE_API_KEY", "MT5_INGEST_URL", "MT5_INGEST_SECRET"];
 for (const key of required) {
   if (!process.env[key]) {
@@ -16,148 +14,277 @@ const defaultAddresses = [
   "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
   "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
   "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
-  "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
   "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
   "ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82",
 ];
 
-const addresses = [
-  ...new Set(
-    (process.env.MT5_TOKEN_ADDRESSES ?? defaultAddresses.join(","))
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  ),
-].slice(0, 100);
-
-const symbolByAddress = new Map();
+const configuredAddresses = parseAddresses(process.env.MT5_TOKEN_ADDRESSES);
+const pollIntervalMs = clamp(
+  Number(process.env.BIRDEYE_POLL_INTERVAL_MS ?? 600_000),
+  300_000,
+  3_600_000,
+);
+const dailyRequestBudget = clamp(
+  Number(process.env.BIRDEYE_DAILY_REQUEST_BUDGET ?? 800),
+  50,
+  900,
+);
+const seenSignatures = new Set();
 const walletActivity = new Map();
-const queue = [];
-let flushTimer;
-let retryMs = 1_000;
+let budgetDay = dayKey();
+let requestsToday = 0;
 
-await connect();
+console.log(
+  `Birdeye Standard REST collector started. Interval ${Math.round(
+    pollIntervalMs / 60_000,
+  )}m; daily request budget ${dailyRequestBudget}.`,
+);
 
-async function connect() {
-  const url = `wss://public-api.birdeye.so/socket/solana?x-api-key=${encodeURIComponent(process.env.BIRDEYE_API_KEY)}`;
-  const socket = new WebSocket(url, "echo-protocol", {
-    headers: { Origin: "https://birdeye.so" },
-  });
-
-  socket.on("open", () => {
-    retryMs = 1_000;
-    console.log(`Connected. Tracking ${addresses.length} Solana tokens.`);
-    socket.send(
-      JSON.stringify({
-        type: "SUBSCRIBE_TXS",
-        data: {
-          queryType: "complex",
-          query: addresses.map((address) => `address = ${address}`).join(" OR "),
-          txsType: "swap",
-        },
-      }),
+for (;;) {
+  try {
+    await collectCycle();
+  } catch (error) {
+    console.error(
+      "Collector cycle failed:",
+      error instanceof Error ? error.message : String(error),
     );
-  });
-
-  socket.on("message", (event) => {
-    let message;
-    try {
-      message = JSON.parse(String(event));
-    } catch {
-      return;
-    }
-    if (message.type !== "TXS_DATA") return;
-    const trade = normalizeBirdeyeTrade(message.data);
-    if (!trade) return;
-    queue.push(trade);
-    scheduleFlush();
-  });
-
-  socket.on("close", () => {
-    console.error(`Disconnected. Retrying in ${retryMs / 1000}s.`);
-    setTimeout(connect, retryMs);
-    retryMs = Math.min(retryMs * 2, 30_000);
-  });
-
-  socket.on("error", (event) => {
-    console.error("WebSocket error", event.message ?? "unknown");
-    socket.close();
-  });
+  }
+  await delay(pollIntervalMs);
 }
 
-function normalizeBirdeyeTrade(data) {
-  const tokenAddress = data?.tokenAddress;
-  const wallet = data?.owner;
-  const signature = data?.txHash;
-  const side = data?.side;
-  const amountUsd = Number(data?.volumeUSD);
-  const timestamp = Number(data?.blockUnixTime);
+async function collectCycle() {
+  resetBudgetIfNeeded();
+  const addresses =
+    configuredAddresses.length > 0
+      ? configuredAddresses
+      : await currentConstituentAddresses();
+  const targets =
+    addresses.length > 0 ? addresses.slice(0, 5) : defaultAddresses.slice(0, 5);
+  const afterTime = Math.floor(Date.now() / 1000) - 30 * 60;
+  const trades = [];
+  let completeTargets = 0;
+
+  for (const address of targets) {
+    if (requestsToday >= dailyRequestBudget) {
+      console.error("Daily Birdeye request budget reached; collection paused.");
+      break;
+    }
+    requestsToday += 1;
+    const response = await fetch(
+      `https://public-api.birdeye.so/defi/v3/token/txs?address=${encodeURIComponent(
+        address,
+      )}&limit=100&sort_by=block_unix_time&sort_type=desc&tx_type=swap&after_time=${afterTime}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-API-KEY": process.env.BIRDEYE_API_KEY,
+          "x-chain": "solana",
+        },
+      },
+    );
+    if (!response.ok) {
+      console.error(`Birdeye ${address}: HTTP ${response.status}`);
+      if (response.status === 429) break;
+      continue;
+    }
+    const payload = await response.json();
+    const items = extractItems(payload);
+    if (items.length < 100) completeTargets += 1;
+    for (const item of items) {
+      const trade = normalizeBirdeyeTrade(item, address);
+      if (!trade || seenSignatures.has(trade.signature)) continue;
+      seenSignatures.add(trade.signature);
+      trades.push(trade);
+    }
+  }
+
+  if (seenSignatures.size > 20_000) seenSignatures.clear();
+  if (trades.length > 0) await flushTrades(trades);
+  console.log(
+    JSON.stringify({
+      collectedAt: new Date().toISOString(),
+      targets: targets.length,
+      completeTargets,
+      acceptedTrades: trades.length,
+      requestsToday,
+      identityMode: "wallet-level-unverified",
+      publishableHumanEstimate: false,
+    }),
+  );
+}
+
+async function currentConstituentAddresses() {
+  try {
+    const indexUrl = new URL(process.env.MT5_INGEST_URL);
+    indexUrl.pathname = "/api/index";
+    indexUrl.search = "";
+    const response = await fetch(indexUrl, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return [];
+    const snapshot = await response.json();
+    return Array.isArray(snapshot.constituents)
+      ? snapshot.constituents
+          .map((coin) => coin?.tokenAddress)
+          .filter((address) => typeof address === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeBirdeyeTrade(data, requestedAddress) {
+  const signature = stringFrom(
+    data?.tx_hash,
+    data?.txHash,
+    data?.signature,
+  );
+  const wallet = stringFrom(
+    data?.owner,
+    data?.wallet,
+    Array.isArray(data?.signers) ? data.signers[0] : "",
+  );
+  const timestamp = integerFrom(
+    data?.block_unix_time,
+    data?.blockUnixTime,
+    data?.timestamp,
+  );
+  const tokenAddress = stringFrom(
+    data?.token_address,
+    data?.tokenAddress,
+    requestedAddress,
+  );
+  const side = normalizeSide(data?.side, data, requestedAddress);
+  const amountUsd = numberFrom(
+    data?.volume_usd,
+    data?.volumeUSD,
+    data?.value_usd,
+  );
   if (
-    !tokenAddress ||
-    !wallet ||
     !signature ||
-    (side !== "buy" && side !== "sell") ||
-    !Number.isFinite(amountUsd) ||
-    amountUsd <= 0 ||
-    !Number.isInteger(timestamp)
+    !wallet ||
+    !timestamp ||
+    !tokenAddress ||
+    !side ||
+    amountUsd <= 0
   ) {
     return null;
   }
-
-  const symbol =
-    symbolByAddress.get(tokenAddress) ??
-    (data?.to?.address === tokenAddress ? data.to.symbol : data?.from?.symbol) ??
-    "UNKNOWN";
-  symbolByAddress.set(tokenAddress, symbol);
 
   const recent = (walletActivity.get(wallet) ?? []).filter(
     (seenAt) => timestamp - seenAt < 60,
   );
   recent.push(timestamp);
   walletActivity.set(wallet, recent);
-
   const likelyAutomation = recent.length > 20;
+
   return {
     signature,
     tokenAddress,
-    symbol,
+    symbol: stringFrom(
+      data?.token_symbol,
+      data?.symbol,
+      data?.to?.symbol,
+      data?.from?.symbol,
+      "UNKNOWN",
+    ).slice(0, 16),
     wallet,
     clusterId: wallet,
     side,
     amountUsd,
-    priceUsd: Number(data?.tokenPrice ?? data?.pricePair ?? 0) || null,
-    identityConfidence: 0.55,
-    botScore: likelyAutomation ? 0.9 : 0.15,
-    source: "birdeye",
+    priceUsd:
+      numberFrom(data?.token_price, data?.tokenPrice, data?.price) || null,
+    identityConfidence: 0.4,
+    botScore: likelyAutomation ? 0.95 : 0.2,
+    source: "birdeye-standard-rest",
     timestamp,
   };
 }
 
-function scheduleFlush() {
-  if (queue.length >= 50) {
-    void flush();
-    return;
+async function flushTrades(trades) {
+  for (let index = 0; index < trades.length; index += 100) {
+    const batch = trades.slice(index, index + 100);
+    const response = await fetch(process.env.MT5_INGEST_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.MT5_INGEST_SECRET}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ trades: batch }),
+    });
+    if (!response.ok) {
+      throw new Error(`Ingest failed: HTTP ${response.status}`);
+    }
   }
-  clearTimeout(flushTimer);
-  flushTimer = setTimeout(flush, 1_000);
 }
 
-async function flush() {
-  clearTimeout(flushTimer);
-  if (queue.length === 0) return;
-  const trades = queue.splice(0, 100);
-  const response = await fetch(process.env.MT5_INGEST_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.MT5_INGEST_SECRET}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ trades }),
-  });
-  if (!response.ok) {
-    queue.unshift(...trades);
-    console.error(`Ingest failed: HTTP ${response.status}`);
-    return;
+function extractItems(payload) {
+  const candidates = [
+    payload?.data?.items,
+    payload?.data,
+    payload?.items,
+    payload?.result,
+  ];
+  return candidates.find(Array.isArray) ?? [];
+}
+
+function normalizeSide(value, data, requestedAddress) {
+  const direct = String(value ?? "").toLowerCase();
+  if (direct === "buy" || direct === "sell") return direct;
+  const toAddress = stringFrom(data?.to?.address, data?.to_address);
+  const fromAddress = stringFrom(data?.from?.address, data?.from_address);
+  if (toAddress === requestedAddress) return "buy";
+  if (fromAddress === requestedAddress) return "sell";
+  return null;
+}
+
+function parseAddresses(value) {
+  return [
+    ...new Set(
+      String(value ?? "")
+        .split(",")
+        .map((address) => address.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function stringFrom(...values) {
+  const value = values.find(
+    (candidate) => typeof candidate === "string" && candidate.trim(),
+  );
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numberFrom(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
   }
-  console.log(`Accepted ${trades.length} trades.`);
+  return 0;
+}
+
+function integerFrom(...values) {
+  const number = numberFrom(...values);
+  return Number.isInteger(number) && number > 0 ? number : 0;
+}
+
+function resetBudgetIfNeeded() {
+  const today = dayKey();
+  if (today !== budgetDay) {
+    budgetDay = today;
+    requestsToday = 0;
+  }
+}
+
+function dayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

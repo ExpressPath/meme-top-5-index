@@ -33,7 +33,7 @@ test("renders the MT5 public index page", async () => {
   assert.match(html, /TRUMP/);
   assert.match(html, /算出ルール/);
   assert.match(html, /ユーザー数とは表示しません/);
-  assert.match(html, /MT5RはDevnetで発行済み/);
+  assert.match(html, /Mainnet発行は自動停止中/);
   assert.match(html, /ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
@@ -46,5 +46,8 @@ test("serves the public index API", async () => {
   assert.equal(typeof body.isLive, "boolean");
   assert.match(body.dataMode, /^(live-human-estimate|live-market-proxy|fallback)$/);
   assert.equal(body.constituents.length, 5);
-  assert.equal(body.methodologyVersion, "2.0");
+  assert.equal(body.methodologyVersion, "3.0");
+  assert.match(body.publication.state, /^(publishable|degraded|halted)$/);
+  assert.equal(typeof body.publication.tokenNavEligible, "boolean");
+  assert.equal(Array.isArray(body.dataSources), true);
 });

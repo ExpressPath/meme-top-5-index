@@ -53,7 +53,7 @@ export default function Home() {
         <div className="hero-copy">
           <div className="kicker">
             <span className="live-dot" />
-            SOLANA · 15 SECOND MARKET REFRESH
+            SOLANA · 25 SECOND CONSENSUS REFRESH
           </div>
           <h1>
             ウォレットではなく、
@@ -62,7 +62,7 @@ export default function Home() {
           </h1>
           <p className="hero-lede">
             MT5は、直近30分で多くの推定ユーザーが買った総額の大きいミームコイン5銘柄を選び、
-            価格変動をリアルタイムの時価総額加重平均で示す研究指数です。
+            価格変動を独立した2つの市場データ源で照合し、時価総額加重平均で示す研究指数です。
           </p>
           <div className="hero-actions">
             <a className="button primary" href="#index">
@@ -102,7 +102,7 @@ export default function Home() {
             <span>Selected coins</span>
           </div>
           <div>
-            <strong>15s</strong>
+            <strong>25s</strong>
             <span>Market refresh</span>
           </div>
           <div>
@@ -128,7 +128,7 @@ export default function Home() {
       <section className="method-section" id="methodology">
         <div className="shell">
           <div className="method-intro">
-            <span className="section-label light">METHODOLOGY 2.0</span>
+            <span className="section-label light">METHODOLOGY 3.0</span>
             <h2>
               人気の数ではなく、
               <br />
@@ -183,12 +183,12 @@ export default function Home() {
       <section className="closing" id="launch">
         <div className="shell closing-inner">
           <div>
-            <span className="section-label light">TOKEN RELEASE STATUS</span>
-            <h2>MT5RはDevnetで発行済み。</h2>
+            <span className="section-label light">MAINNET RELEASE GATE</span>
+            <h2>指数は稼働。Mainnet発行は自動停止中。</h2>
             <p>
-              固定供給10億枚を発行し、追加発行・凍結・メタデータ変更・
-              メタデータ参照先変更の全権限を失効しました。無価値の研究用Devnetトークンであり、
-              指数持分や償還請求権ではありません。
+              DEX ScreenerとGeckoTerminalの価格合意、人物推定、カストディ、
+              監査、法的確認がすべて揃うまでMainnetへの発行と入金を拒否します。
+              現在のMT5Rは無価値の研究用Devnetトークンであり、指数持分や償還請求権ではありません。
             </p>
             <code className="mint-address">{devnetMint}</code>
           </div>
@@ -203,6 +203,9 @@ export default function Home() {
             </a>
             <a className="button token-secondary" href="/token/metadata.json">
               Metadata
+            </a>
+            <a className="button token-secondary" href="/data-sources.json">
+              Data policy
             </a>
           </div>
         </div>

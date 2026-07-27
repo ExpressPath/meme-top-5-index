@@ -33,12 +33,17 @@ export default function LiveIndex({
   }, []);
 
   if (compact) {
+    const publicationLabel = snapshot.publication.tokenNavEligible
+      ? "NAV READY"
+      : snapshot.isLive
+        ? "INDEX LIVE"
+        : "HALTED";
     return (
       <div className="index-float" aria-live="polite">
         <div className="float-top">
           <span>MT5 / USD</span>
           <span className={`preview-pill ${snapshot.isLive ? "live" : ""}`}>
-            {snapshot.isLive ? "LIVE" : "FALLBACK"}
+            {publicationLabel}
           </span>
         </div>
         <strong>{snapshot.value.toFixed(2)}</strong>
@@ -53,6 +58,7 @@ export default function LiveIndex({
   }
 
   const identityLive = snapshot.dataMode === "live-human-estimate";
+  const tokenNavEligible = snapshot.publication.tokenNavEligible;
   return (
     <div className="index-panel" aria-live="polite">
       <div className="feed-status">
@@ -63,7 +69,13 @@ export default function LiveIndex({
         <span>{new Date(snapshot.asOf).toLocaleString("ja-JP")}</span>
       </div>
       <div className={`identity-banner ${identityLive ? "ready" : ""}`}>
-        <strong>{identityLive ? "Human estimate live" : "Identity layer pending"}</strong>
+        <strong>
+          {tokenNavEligible
+            ? "Token NAV publishable"
+            : identityLive
+              ? "Human estimate live · NAV gated"
+              : "Index live · token NAV gated"}
+        </strong>
         <span>{snapshot.identityNotice}</span>
       </div>
       <div className="table-head live-table-head" aria-hidden="true">
@@ -109,6 +121,14 @@ export default function LiveIndex({
         {identityLive
           ? "有効買い総額は、Bot除外後に1ユーザー当たり$10,000で上限処理した値です。"
           : "人間推定フィードが基準を満たすまで、買い出来高プロキシによる暫定順位です。ウォレット数はユーザー数として表示しません。"}
+      </div>
+      <div className="panel-note">
+        <span>✓</span>
+        市場データ合意 {snapshot.publication.consensusConstituents}/5 ·
+        独立ソース {snapshot.publication.sourceQuorum}/2 ·
+        オンチェーン検証 {snapshot.publication.chainVerifiedConstituents}/5 ·
+        トークンNAV{" "}
+        {snapshot.publication.tokenNavEligible ? "公開可能" : "自動停止中"}
       </div>
     </div>
   );

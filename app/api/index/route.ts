@@ -2,210 +2,205 @@ import {
   buildSnapshot,
   fallbackCandidates,
   type DemandSignal,
-  type MarketCandidate,
+  type IndexSnapshot,
 } from "../../../lib/index-engine";
+import { fetchMarketData } from "../../../lib/market-data";
+import { verifySolanaMints } from "../../../lib/solana-verifier";
 
 const SEED_ADDRESSES = fallbackCandidates.map((coin) => coin.tokenAddress);
+const SNAPSHOT_TTL_MS = 25_000;
 
-type DexPair = {
-  chainId?: string;
-  pairAddress?: string;
-  baseToken?: { address?: string; symbol?: string; name?: string };
-  priceUsd?: string;
-  txns?: { h1?: { buys?: number; sells?: number } };
-  volume?: { h1?: number };
-  priceChange?: { h1?: number };
-  liquidity?: { usd?: number };
-  marketCap?: number;
-  fdv?: number;
-  info?: { imageUrl?: string };
-};
-
-type TokenRef = { chainId?: string; tokenAddress?: string };
+let cachedSnapshot:
+  | {
+      value: IndexSnapshot;
+      expiresAt: number;
+    }
+  | undefined;
+let refreshInFlight: Promise<IndexSnapshot> | undefined;
 
 export async function GET() {
-  const asOf = new Date().toISOString();
+  const now = Date.now();
+  if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+    return indexResponse(cachedSnapshot.value);
+  }
+
+  refreshInFlight ??= createSnapshot().finally(() => {
+    refreshInFlight = undefined;
+  });
 
   try {
-    const [markets, demand] = await Promise.all([
-      fetchMarketCandidates(),
-      readDemandSignals().catch(() => new Map<string, DemandSignal>()),
-    ]);
-
-    const mergedMarkets = new Map(
-      fallbackCandidates.map((coin) => [coin.tokenAddress, coin]),
-    );
-    for (const market of markets) mergedMarkets.set(market.tokenAddress, market);
-
-    const enriched = [...mergedMarkets.values()].map((coin) => ({
-      ...coin,
-      demand: demand.get(coin.tokenAddress),
-    }));
-    const snapshot = buildSnapshot(enriched, asOf);
-    const hasFiveLiveMarkets =
-      markets.filter(
-        (coin) => coin.marketCap >= 1_000_000 && coin.liquidityUsd >= 250_000,
-      ).length >= 5;
-
-    return Response.json(
-      hasFiveLiveMarkets
-        ? snapshot
-        : {
-            ...snapshot,
-            isLive: false,
-            dataMode: "fallback",
-            identityNotice:
-              "ライブ市場データが5銘柄に満たないため、一部に検証済みスナップショットを使用",
-          },
-      {
-      headers: {
-        "Cache-Control": "public, max-age=10, s-maxage=15, stale-while-revalidate=30",
-        "Access-Control-Allow-Origin": "*",
-      },
-      },
-    );
+    const snapshot = await refreshInFlight;
+    cachedSnapshot = {
+      value: snapshot,
+      expiresAt: Date.now() + SNAPSHOT_TTL_MS,
+    };
+    return indexResponse(snapshot);
   } catch {
-    const snapshot = buildSnapshot(fallbackCandidates, asOf);
-    return Response.json(
-      {
-        ...snapshot,
-        isLive: false,
-        dataMode: "fallback",
-        identityNotice:
-          "外部フィードに接続できないため、最後の検証済み研究スナップショットを表示",
-      },
-      {
-        headers: {
-          "Cache-Control": "public, max-age=15",
-          "Access-Control-Allow-Origin": "*",
-        },
-      },
+    const fallback = buildSnapshot(
+      fallbackCandidates,
+      new Date().toISOString(),
+      [],
     );
+    return indexResponse({
+      ...fallback,
+      isLive: false,
+      dataMode: "fallback",
+      identityNotice:
+        "外部データ源の合意を確認できないため、検証済み研究スナップショットを表示中",
+      publication: {
+        ...fallback.publication,
+        state: "halted",
+        tokenNavEligible: false,
+        reasons: ["市場データ取得に失敗したため指数公開を停止しました"],
+      },
+    });
   }
 }
 
-async function fetchMarketCandidates(): Promise<MarketCandidate[]> {
-  const [profilesResponse, boostsResponse, ...seedResults] = await Promise.all([
-    fetch("https://api.dexscreener.com/token-profiles/latest/v1", {
-      headers: { Accept: "application/json" },
-    }),
-    fetch("https://api.dexscreener.com/token-boosts/top/v1", {
-      headers: { Accept: "application/json" },
-    }),
-    ...SEED_ADDRESSES.map((address) =>
-      fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, {
-        headers: { Accept: "application/json" },
-      }).catch(() => null),
+async function createSnapshot() {
+  const asOf = new Date().toISOString();
+  const runtimeEnv = await getRuntimeEnv();
+  const [marketData, demand] = await Promise.all([
+    fetchMarketData(SEED_ADDRESSES),
+    readDemandSignals(runtimeEnv.DB).catch(
+      () => new Map<string, DemandSignal>(),
     ),
   ]);
-
-  const discovered: TokenRef[] = [];
-  if (profilesResponse.ok) {
-    discovered.push(...((await profilesResponse.json()) as TokenRef[]));
-  }
-  if (boostsResponse.ok) {
-    discovered.push(...((await boostsResponse.json()) as TokenRef[]));
-  }
-
-  const discoveredAddresses = [
-    ...new Set([
-      ...discovered
-        .filter((item) => item.chainId === "solana" && item.tokenAddress)
-        .map((item) => item.tokenAddress as string),
-    ]),
-  ].slice(0, 23);
-
-  const pairs: DexPair[] = [];
-  for (const response of seedResults) {
-    if (!response?.ok) continue;
-    const payload = (await response.json()) as { pairs?: DexPair[] };
-    pairs.push(...(payload.pairs ?? []));
-  }
-
-  if (discoveredAddresses.length > 0) {
-    const response = await fetch(
-      `https://api.dexscreener.com/tokens/v1/solana/${discoveredAddresses.join(",")}`,
-      { headers: { Accept: "application/json" } },
-    );
-    if (response.ok) pairs.push(...((await response.json()) as DexPair[]));
-  }
-
-  if (pairs.length === 0) throw new Error("DEX Screener returned no pairs");
-  const bestByToken = new Map<string, DexPair>();
-
-  for (const pair of pairs) {
-    const address = pair.baseToken?.address;
-    if (!address || pair.chainId !== "solana") continue;
-    const current = bestByToken.get(address);
-    if (
-      !current ||
-      Number(pair.liquidity?.usd ?? 0) >
-        Number(current.liquidity?.usd ?? 0)
-    ) {
-      bestByToken.set(address, pair);
-    }
-  }
-
-  return [...bestByToken.entries()].map(([tokenAddress, pair]) => ({
-    tokenAddress,
-    symbol: pair.baseToken?.symbol?.slice(0, 16) || "UNKNOWN",
-    name: pair.baseToken?.name?.slice(0, 48) || "Unknown token",
-    priceUsd: Number(pair.priceUsd ?? 0),
-    marketCap: Number(pair.marketCap ?? pair.fdv ?? 0),
-    liquidityUsd: Number(pair.liquidity?.usd ?? 0),
-    volumeUsd: Number(pair.volume?.h1 ?? 0),
-    buys: Number(pair.txns?.h1?.buys ?? 0),
-    sells: Number(pair.txns?.h1?.sells ?? 0),
-    changePercent: Number(pair.priceChange?.h1 ?? 0),
-    imageUrl: pair.info?.imageUrl,
+  const enriched = marketData.candidates.map((coin) => ({
+    ...coin,
+    demand: demand.get(coin.tokenAddress),
   }));
+
+  if (enriched.length < 5) {
+    const fallback = buildSnapshot(
+      fallbackCandidates,
+      asOf,
+      marketData.sources,
+    );
+    return {
+      ...fallback,
+      isLive: false,
+      dataMode: "fallback" as const,
+      identityNotice:
+        "採用基準を満たすライブ銘柄が5つ未満のため、研究スナップショットを表示中",
+      publication: {
+        ...fallback.publication,
+        state: "halted" as const,
+        tokenNavEligible: false,
+        reasons: [
+          ...fallback.publication.reasons,
+          "ライブ市場データが5銘柄未満です",
+        ],
+      },
+    };
+  }
+
+  const preliminary = buildSnapshot(enriched, asOf, marketData.sources);
+  const selectedAddresses = new Set(
+    preliminary.constituents.map((coin) => coin.tokenAddress),
+  );
+  const selected = enriched.filter((coin) =>
+    selectedAddresses.has(coin.tokenAddress),
+  );
+  const verification = await verifySolanaMints(
+    selected,
+    runtimeEnv.HELIUS_API_KEY,
+  );
+  const verifiedByAddress = new Map(
+    verification.candidates.map((coin) => [coin.tokenAddress, coin]),
+  );
+  const verifiedUniverse = enriched.map(
+    (coin) => verifiedByAddress.get(coin.tokenAddress) ?? coin,
+  );
+
+  return buildSnapshot(verifiedUniverse, asOf, [
+    ...marketData.sources,
+    verification.health,
+  ]);
 }
 
-async function readDemandSignals() {
-  const runtimeEnv = await getRuntimeEnv();
-  if (!runtimeEnv.DB) return new Map<string, DemandSignal>();
+function indexResponse(snapshot: IndexSnapshot) {
+  return Response.json(snapshot, {
+    headers: {
+      "Cache-Control":
+        "public, max-age=5, s-maxage=25, stale-while-revalidate=60",
+      "Access-Control-Allow-Origin": "*",
+      "X-MT5-Publication-State": snapshot.publication.state,
+    },
+  });
+}
+
+async function readDemandSignals(database?: D1Database) {
+  if (!database) return new Map<string, DemandSignal>();
 
   const cutoff = Math.floor(Date.now() / 1000) - 30 * 60;
-  const result = await runtimeEnv.DB.prepare(
-    `SELECT
-      token_address AS tokenAddress,
-      SUM(CASE WHEN side = 'buy' THEN amount_usd ELSE 0 END) AS grossBuyUsd,
-      SUM(
-        CASE
-          WHEN side = 'buy' AND bot_score < 0.5 AND identity_confidence >= 0.65
-          THEN MIN(amount_usd, 10000)
-          ELSE 0
-        END
-      ) AS qualifiedBuyUsd,
-      COUNT(
-        DISTINCT CASE
-          WHEN side = 'buy' AND bot_score < 0.5 AND identity_confidence >= 0.65
-          THEN cluster_id
-          ELSE NULL
-        END
-      ) AS estimatedUsers,
-      AVG(
-        CASE
-          WHEN side = 'buy' AND bot_score < 0.5
-          THEN identity_confidence
-          ELSE NULL
-        END
-      ) AS identityConfidence
-    FROM trades
-    WHERE timestamp >= ?
-    GROUP BY token_address`,
+  const result = await database.prepare(
+    `WITH recent AS (
+      SELECT *
+      FROM trades
+      WHERE timestamp >= ?
+        AND timestamp <= ?
+    ),
+    gross AS (
+      SELECT
+        token_address,
+        SUM(CASE WHEN side = 'buy' THEN amount_usd ELSE 0 END) AS gross_buy_usd
+      FROM recent
+      GROUP BY token_address
+    ),
+    clustered AS (
+      SELECT
+        token_address,
+        cluster_id,
+        SUM(amount_usd) AS cluster_buy_usd,
+        AVG(identity_confidence) AS cluster_confidence
+      FROM recent
+      WHERE side = 'buy'
+        AND bot_score < 0.5
+        AND identity_confidence >= 0.65
+      GROUP BY token_address, cluster_id
+    ),
+    qualified AS (
+      SELECT
+        token_address,
+        SUM(MIN(cluster_buy_usd, 10000)) AS qualified_buy_usd,
+        COUNT(*) AS estimated_users,
+        AVG(cluster_confidence) AS identity_confidence
+      FROM clustered
+      GROUP BY token_address
+    )
+    SELECT
+      gross.token_address AS tokenAddress,
+      gross.gross_buy_usd AS grossBuyUsd,
+      COALESCE(qualified.qualified_buy_usd, 0) AS qualifiedBuyUsd,
+      COALESCE(qualified.estimated_users, 0) AS estimatedUsers,
+      COALESCE(qualified.identity_confidence, 0) AS identityConfidence
+    FROM gross
+    LEFT JOIN qualified
+      ON qualified.token_address = gross.token_address`,
   )
-    .bind(cutoff)
+    .bind(cutoff, Math.floor(Date.now() / 1000) + 60)
     .all<DemandSignal>();
 
   return new Map(result.results.map((row) => [row.tokenAddress, row]));
 }
 
-async function getRuntimeEnv(): Promise<{ DB?: D1Database }> {
+async function getRuntimeEnv(): Promise<{
+  DB?: D1Database;
+  HELIUS_API_KEY?: string;
+}> {
   try {
     const workers = await import("cloudflare:workers");
-    return workers.env as unknown as { DB?: D1Database };
+    const runtime = workers.env as unknown as {
+      DB?: D1Database;
+      HELIUS_API_KEY?: string;
+    };
+    return {
+      ...runtime,
+      HELIUS_API_KEY:
+        runtime.HELIUS_API_KEY ?? process.env.HELIUS_API_KEY,
+    };
   } catch {
-    return {};
+    return { HELIUS_API_KEY: process.env.HELIUS_API_KEY };
   }
 }

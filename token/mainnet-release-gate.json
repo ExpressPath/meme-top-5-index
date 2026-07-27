@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "network": "solana-mainnet-beta",
+  "status": "blocked",
+  "checks": {
+    "writtenLegalOpinionApproved": false,
+    "distributionPartnerApproved": false,
+    "custodianSelected": false,
+    "basketVaultImplemented": false,
+    "smartContractAuditPassed": false,
+    "multisigConfigured": false,
+    "oracleHasTwoIndependentSigners": false,
+    "incidentRunbookApproved": false,
+    "thirtyDayShadowPublicationPassed": false,
+    "explicitMainnetApproval": false
+  },
+  "liveIndexRequirements": {
+    "publicationState": "publishable",
+    "tokenNavEligible": true,
+    "minimumSourceQuorum": 2,
+    "requiredConsensusConstituents": 5,
+    "requiredChainVerifiedConstituents": 5,
+    "requiredSafeAuthorityConstituents": 5
+  },
+  "notes": [
+    "This file intentionally blocks minting and public deposits.",
+    "Changing booleans is not sufficient evidence; each approval must reference a signed artifact in a controlled release process.",
+    "Mainnet writes cost SOL and cannot be genuinely free."
+  ]
+}

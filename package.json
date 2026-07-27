@@ -12,8 +12,10 @@
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "collector": "node scripts/collector.mjs",
-    "token:devnet": "node scripts/create-devnet-token.mjs"
+    "collector": "node scripts/helius-collector.mjs",
+    "collector:birdeye": "node scripts/collector.mjs",
+    "token:devnet": "node scripts/create-devnet-token.mjs",
+    "token:mainnet:check": "node scripts/check-mainnet-readiness.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -40,8 +42,7 @@
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.0.13",
-    "wrangler": "4.92.0",
-    "ws": "^8.21.1"
+    "wrangler": "4.92.0"
   },
   "overrides": {
     "postcss": "8.5.23",

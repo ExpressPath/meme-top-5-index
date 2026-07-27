@@ -1,0 +1,61 @@
+{
+  "version": "0.1",
+  "status": "production-architecture-draft",
+  "network": "solana-mainnet-beta",
+  "workingName": "MT5 Index Vault Share",
+  "trackingModel": "fully-backed redeemable basket vault share",
+  "reason": "A fixed-supply token does not track an index by itself. Creation and redemption against the underlying basket are required for arbitrage to keep market price near NAV.",
+  "basket": {
+    "referenceIndex": "MT5 methodology 3.0",
+    "constituents": 5,
+    "weighting": "verified market capitalization",
+    "pricingCurrency": "USD",
+    "settlementAsset": "USDC",
+    "selectionObservationMinutes": 30,
+    "rebalance": {
+      "frequency": "daily",
+      "effectiveTime": "00:00 UTC",
+      "entryRule": "candidate remains eligible for three consecutive observations",
+      "emergencyRemoval": "oracle failure, liquidity breach, exploit, freeze, or legal restriction"
+    }
+  },
+  "issuance": {
+    "permissionless": false,
+    "creationRedemption": "approved participant only",
+    "primaryMarketKyc": true,
+    "mintAuthority": "multisig controlled issuance program",
+    "freezeAuthority": "compliance and incident-response multisig",
+    "initialPublicSale": false
+  },
+  "oracle": {
+    "minimumIndependentMarketSources": 2,
+    "maximumPriceDivergenceBps": 500,
+    "maximumAgeSeconds": 90,
+    "failClosed": true,
+    "minimumIndependentSigners": 2,
+    "publicationIntervalSeconds": 30
+  },
+  "custody": {
+    "model": "segregated on-chain vault plus regulated operational custody",
+    "proofOfReserves": "public vault balances and daily signed holdings report",
+    "status": "not-selected"
+  },
+  "legal": {
+    "jurisdiction": "Japan and any offered market",
+    "classification": "requires written counsel opinion",
+    "distribution": "requires appropriately registered partner if offered to the public",
+    "status": "not-approved",
+    "officialReferences": [
+      "https://www.fsa.go.jp/policy/virtual_currency/index_2.html",
+      "https://www.fsa.go.jp/common/law/guide/kinyushohin/04a.html",
+      "https://www.fsa.go.jp/news/r7/sonota/20260313-02/20260313-02.html"
+    ]
+  },
+  "security": {
+    "smartContractAudit": "required",
+    "multisig": "required",
+    "timelock": "required for non-emergency governance changes",
+    "bugBounty": "required before public deposits",
+    "incidentRunbook": "required"
+  }
+}

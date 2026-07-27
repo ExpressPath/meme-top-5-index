@@ -1,0 +1,43 @@
+{
+  "name": "Meme Top 5 Human Demand Index",
+  "symbol": "MT5",
+  "version": "3.0",
+  "currency": "USD",
+  "marketRefreshSeconds": 25,
+  "demandWindowMinutes": 30,
+  "selection": {
+    "constituents": 5,
+    "dynamicDiscovery": "must appear in both DEX Screener promoted profiles and GeckoTerminal Solana trending pools; curated seeds remain eligible",
+    "ranking": "qualified buy USD after bot filtering and entity clustering",
+    "minimumEstimatedUsers": 25,
+    "minimumIdentityConfidence": 0.65,
+    "maximumQualifiedBuyUsdPerEstimatedUser": 10000,
+    "fallbackRanking": "buy-volume proxy, explicitly not publishable as token NAV"
+  },
+  "eligibility": {
+    "minimumMarketCapUsd": 1000000,
+    "minimumLiquidityUsd": 250000,
+    "minimumIndependentMarketSources": 2,
+    "maximumPriceDivergenceBps": 500,
+    "maximumMarketCapDivergenceBps": 2000,
+    "minimumMarketConfidence": 0.65,
+    "requireOnchainMintVerification": true,
+    "requireRevokedMintAndFreezeAuthoritiesForTokenNav": true
+  },
+  "weighting": "free-float market capitalization when verified; unverified FDV is not accepted",
+  "publication": {
+    "states": [
+      "publishable",
+      "degraded",
+      "halted"
+    ],
+    "failClosed": true,
+    "tokenNavRequiresHumanEstimate": true,
+    "tokenNavRequiresFiveConsensusConstituents": true
+  },
+  "limitations": [
+    "A blockchain address is not a person.",
+    "Entity clustering remains an estimate and must publish confidence.",
+    "The rolling public index is not itself a redeemable financial product."
+  ]
+}
