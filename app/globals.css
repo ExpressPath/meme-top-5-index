@@ -684,8 +684,25 @@ a {
   line-height: 1.8;
 }
 
+.mint-address {
+  display: block;
+  max-width: 720px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+  color: #ffd6df;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+}
+
 .closing .section-label {
   color: #ffd6df;
+}
+
+.token-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .light-button {
@@ -693,6 +710,12 @@ a {
   background: white;
   color: var(--ink);
   border-color: white;
+}
+
+.token-secondary {
+  min-width: 130px;
+  color: white;
+  border-color: rgb(255 255 255 / 45%);
 }
 
 .footer {

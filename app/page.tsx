@@ -2,6 +2,9 @@ import Image from "next/image";
 import { fallbackSnapshot } from "../lib/index-engine";
 import LiveIndex from "./live-index";
 
+const devnetMint = "ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt";
+const devnetExplorer = `https://explorer.solana.com/address/${devnetMint}?cluster=devnet`;
+
 const methodology = [
   {
     number: "01",
@@ -181,15 +184,27 @@ export default function Home() {
         <div className="shell closing-inner">
           <div>
             <span className="section-label light">TOKEN RELEASE STATUS</span>
-            <h2>MT5RはDevnetから検証する。</h2>
+            <h2>MT5RはDevnetで発行済み。</h2>
             <p>
-              まず無価値の研究トークンで発行・メタデータ・権限失効を検証し、
-              指数連動の裏付け・償還・法務が固まるまでメインネット販売は行いません。
+              固定供給10億枚を発行し、追加発行・凍結・メタデータ変更・
+              メタデータ参照先変更の全権限を失効しました。無価値の研究用Devnetトークンであり、
+              指数持分や償還請求権ではありません。
             </p>
+            <code className="mint-address">{devnetMint}</code>
           </div>
-          <a className="button light-button" href="/token/metadata.json">
-            Metadata
-          </a>
+          <div className="token-actions">
+            <a
+              className="button light-button"
+              href={devnetExplorer}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Solana Explorer
+            </a>
+            <a className="button token-secondary" href="/token/metadata.json">
+              Metadata
+            </a>
+          </div>
         </div>
       </section>
 

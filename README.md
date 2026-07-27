@@ -45,6 +45,16 @@ npm run collector
 
 `MT5R` は固定供給10億、追加発行不可、凍結権限なしのToken-2022テストトークンです。メインネット資産、指数持分、償還請求権ではありません。
 
+Devnet Mint: [`ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt`](https://explorer.solana.com/address/ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt?cluster=devnet)
+
+オンチェーン検証済み:
+
+- 供給量: 1,000,000,000 MT5R（6 decimals）
+- Mint authority: revoked
+- Freeze authority: none
+- Metadata update authority: revoked
+- Metadata pointer authority: revoked
+
 ```bash
 npm run token:devnet
 ```

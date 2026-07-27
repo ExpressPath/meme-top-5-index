@@ -33,6 +33,8 @@ test("renders the MT5 public index page", async () => {
   assert.match(html, /TRUMP/);
   assert.match(html, /算出ルール/);
   assert.match(html, /ユーザー数とは表示しません/);
+  assert.match(html, /MT5RはDevnetで発行済み/);
+  assert.match(html, /ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
