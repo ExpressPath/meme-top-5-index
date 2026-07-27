@@ -2,8 +2,13 @@ export type DemandSignal = {
   tokenAddress: string;
   grossBuyUsd: number;
   qualifiedBuyUsd: number;
+  observedBuyerWallets: number;
   estimatedUsers: number;
   identityConfidence: number;
+  coverageComplete: boolean;
+  observedTrades: number;
+  filteredWallets: number;
+  source: string;
 };
 
 export type MarketCandidate = {
@@ -19,6 +24,8 @@ export type MarketCandidate = {
   changePercent: number;
   imageUrl?: string;
   buyerWallets30m?: number | null;
+  buyVolumeUsd30m?: number | null;
+  primaryPoolAddress?: string;
   marketSources?: string[];
   priceDivergenceBps?: number | null;
   marketCapDivergenceBps?: number | null;
@@ -35,9 +42,12 @@ export type IndexConstituent = MarketCandidate & {
   rank: number;
   weight: number;
   rankingBuyUsd: number;
+  observedBuyerWallets: number | null;
   estimatedUsers: number | null;
   identityConfidence: number | null;
-  selectionMode: "human-estimate" | "market-proxy";
+  demandCoverageComplete: boolean | null;
+  demandSource: string | null;
+  selectionMode: "human-estimate" | "wallet-observation" | "market-proxy";
 };
 
 export type IndexSnapshot = {
@@ -48,9 +58,13 @@ export type IndexSnapshot = {
   changePercent: number;
   asOf: string;
   isLive: boolean;
-  dataMode: "live-human-estimate" | "live-market-proxy" | "fallback";
+  dataMode:
+    | "live-human-estimate"
+    | "live-wallet-observation"
+    | "live-market-proxy"
+    | "fallback";
   windowMinutes: number;
-  methodologyVersion: "3.0";
+  methodologyVersion: "3.1";
   identityNotice: string;
   publication: {
     state: "publishable" | "degraded" | "halted";
@@ -59,6 +73,8 @@ export type IndexSnapshot = {
     consensusConstituents: number;
     chainVerifiedConstituents: number;
     safeAuthorityConstituents: number;
+    demandObservedConstituents: number;
+    completeDemandConstituents: number;
     reasons: string[];
   };
   dataSources: DataSourceHealth[];
@@ -66,8 +82,14 @@ export type IndexSnapshot = {
 };
 
 export type DataSourceHealth = {
-  name: "dexscreener" | "geckoterminal" | "helius-rpc";
-  role: "market" | "chain";
+  name:
+    | "dexscreener"
+    | "geckoterminal"
+    | "geckoterminal-trades"
+    | "jupiter-price"
+    | "helius-rpc"
+    | "helius-demand-poll";
+  role: "market" | "chain" | "demand";
   ok: boolean;
   discoveryOk: boolean;
   records: number;
@@ -101,71 +123,83 @@ export function buildSnapshot(
     (coin) =>
       coin.demand &&
       coin.demand.estimatedUsers >= MIN_ESTIMATED_USERS &&
-      coin.demand.identityConfidence >= MIN_IDENTITY_CONFIDENCE,
+      coin.demand.identityConfidence >= MIN_IDENTITY_CONFIDENCE &&
+      coin.demand.coverageComplete,
   );
-
-  const useIdentity = identityReady.length >= 5;
-  const consensusReady = liquid.filter(
+  const observationReady = liquid.filter(
     (coin) =>
-      (coin.marketSources?.length ?? 0) >= 2 &&
-      (coin.priceDivergenceBps ?? Number.POSITIVE_INFINITY) <=
-        MAX_PRICE_DIVERGENCE_BPS &&
-      (coin.marketCapDivergenceBps ?? Number.POSITIVE_INFINITY) <=
-        MAX_MARKET_CAP_DIVERGENCE_BPS &&
-      (coin.marketConfidence ?? 0) >= MIN_MARKET_CONFIDENCE,
+      coin.demand &&
+      coin.demand.observedBuyerWallets > 0 &&
+      coin.demand.grossBuyUsd > 0,
   );
-  const rankingUniverse =
-    useIdentity && identityReady.length >= 5
-      ? identityReady
+  const consensusReady = liquid.filter(hasMarketConsensus);
+  const useIdentity = identityReady.length >= 5;
+  const useWalletObservation = !useIdentity && observationReady.length >= 5;
+  const rankingUniverse = useIdentity
+    ? identityReady
+    : useWalletObservation
+      ? observationReady
       : consensusReady.length >= 5
         ? consensusReady
         : liquid;
+
   const ranked = [...rankingUniverse]
-    .sort((a, b) => {
-      const aScore = useIdentity
-        ? a.demand?.qualifiedBuyUsd ?? 0
-        : proxyBuyVolume(a);
-      const bScore = useIdentity
-        ? b.demand?.qualifiedBuyUsd ?? 0
-        : proxyBuyVolume(b);
-      return bScore - aScore;
+    .sort((left, right) => {
+      const leftScore = rankingBuyUsd(
+        left,
+        useIdentity,
+        useWalletObservation,
+      );
+      const rightScore = rankingBuyUsd(
+        right,
+        useIdentity,
+        useWalletObservation,
+      );
+      if (rightScore !== leftScore) return rightScore - leftScore;
+      return (
+        (right.demand?.observedBuyerWallets ?? 0) -
+        (left.demand?.observedBuyerWallets ?? 0)
+      );
     })
     .slice(0, 5);
 
   const totalMarketCap = ranked.reduce((sum, coin) => sum + coin.marketCap, 0);
-  const constituents = ranked.map((coin, index) => {
-    const weight = totalMarketCap > 0 ? coin.marketCap / totalMarketCap : 0;
-    return {
-      ...coin,
-      rank: index + 1,
-      weight,
-      rankingBuyUsd: useIdentity
-        ? coin.demand?.qualifiedBuyUsd ?? 0
-        : proxyBuyVolume(coin),
-      estimatedUsers: useIdentity ? coin.demand?.estimatedUsers ?? null : null,
-      identityConfidence: useIdentity
-        ? coin.demand?.identityConfidence ?? null
+  const selectionMode = useIdentity
+    ? ("human-estimate" as const)
+    : useWalletObservation
+      ? ("wallet-observation" as const)
+      : ("market-proxy" as const);
+  const constituents = ranked.map((coin, index): IndexConstituent => ({
+    ...coin,
+    rank: index + 1,
+    weight: totalMarketCap > 0 ? coin.marketCap / totalMarketCap : 0,
+    rankingBuyUsd: rankingBuyUsd(
+      coin,
+      useIdentity,
+      useWalletObservation,
+    ),
+    observedBuyerWallets:
+      coin.demand?.observedBuyerWallets ?? coin.buyerWallets30m ?? null,
+    estimatedUsers:
+      coin.demand && coin.demand.estimatedUsers > 0
+        ? coin.demand.estimatedUsers
         : null,
-      selectionMode: useIdentity
-        ? ("human-estimate" as const)
-        : ("market-proxy" as const),
-    };
-  });
+    identityConfidence:
+      coin.demand && coin.demand.identityConfidence > 0
+        ? coin.demand.identityConfidence
+        : null,
+    demandCoverageComplete: coin.demand?.coverageComplete ?? null,
+    demandSource: coin.demand?.source ?? null,
+    selectionMode,
+  }));
 
   const changePercent = constituents.reduce(
     (sum, coin) => sum + coin.weight * coin.changePercent,
     0,
   );
-  const consensusConstituents = constituents.filter(
-    (coin) =>
-      (coin.marketSources?.length ?? 0) >= 2 &&
-      (coin.priceDivergenceBps ?? Number.POSITIVE_INFINITY) <=
-        MAX_PRICE_DIVERGENCE_BPS &&
-      (coin.marketCapDivergenceBps ?? Number.POSITIVE_INFINITY) <=
-        MAX_MARKET_CAP_DIVERGENCE_BPS &&
-      (coin.marketConfidence ?? 0) >= MIN_MARKET_CONFIDENCE,
-  ).length;
-  const healthySources = dataSources.filter(
+  const consensusConstituents =
+    constituents.filter(hasMarketConsensus).length;
+  const healthyMarketSources = dataSources.filter(
     (source) => source.role === "market" && source.ok,
   ).length;
   const chainVerifiedConstituents = constituents.filter(
@@ -174,18 +208,33 @@ export function buildSnapshot(
   const safeAuthorityConstituents = constituents.filter(
     (coin) => coin.mintAuthorityRevoked && coin.freezeAuthorityRevoked,
   ).length;
+  const demandObservedConstituents = constituents.filter(
+    (coin) => (coin.observedBuyerWallets ?? 0) > 0,
+  ).length;
+  const completeDemandConstituents = constituents.filter(
+    (coin) => coin.demandCoverageComplete,
+  ).length;
+
   const reasons: string[] = [];
   if (constituents.length < 5) {
     reasons.push("採用基準を満たす銘柄が5つ未満です");
   }
-  if (healthySources < 2) {
+  if (healthyMarketSources < 2) {
     reasons.push("独立した市場データ源が2系統そろっていません");
   }
   if (consensusConstituents < 5) {
-    reasons.push("5銘柄すべての価格合意を確認できていません");
+    reasons.push("5銘柄すべての価格・時価総額合意を確認できていません");
+  }
+  if (demandObservedConstituents < 5) {
+    reasons.push("5銘柄すべての直近30分の買い手観測がそろっていません");
+  }
+  if (completeDemandConstituents < 5) {
+    reasons.push("一部の買い手データは直近300取引による下限値です");
   }
   if (!useIdentity) {
-    reasons.push("人物単位の推定買いデータが基準未達です");
+    reasons.push(
+      "人物単位を確定できないため、推定アクティブ買い手はウォレット由来の参考値です",
+    );
   }
   if (chainVerifiedConstituents < 5) {
     reasons.push("5銘柄すべてのMintをオンチェーン検証できていません");
@@ -193,15 +242,17 @@ export function buildSnapshot(
   if (safeAuthorityConstituents < 5) {
     reasons.push("追加発行・凍結権限が残る銘柄を検出しました");
   }
-  const sourceQuorumReady = healthySources >= 2 && consensusConstituents === 5;
+
   const tokenNavEligible =
     constituents.length === 5 &&
-    sourceQuorumReady &&
+    healthyMarketSources >= 2 &&
+    consensusConstituents === 5 &&
     useIdentity &&
+    completeDemandConstituents === 5 &&
     chainVerifiedConstituents === 5 &&
     safeAuthorityConstituents === 5;
   const publicationState =
-    constituents.length < 5 || healthySources === 0
+    constituents.length < 5 || healthyMarketSources === 0
       ? ("halted" as const)
       : tokenNavEligible
         ? ("publishable" as const)
@@ -214,29 +265,56 @@ export function buildSnapshot(
     value: 1000 * (1 + changePercent / 100),
     changePercent,
     asOf,
-    isLive: constituents.length === 5 && healthySources > 0,
+    isLive: constituents.length === 5 && healthyMarketSources > 0,
     dataMode: useIdentity
       ? "live-human-estimate"
-      : constituents.length === 5
-        ? "live-market-proxy"
-        : "fallback",
-    windowMinutes: useIdentity ? 30 : 60,
-    methodologyVersion: "3.0",
+      : useWalletObservation
+        ? "live-wallet-observation"
+        : constituents.length === 5
+          ? "live-market-proxy"
+          : "fallback",
+    windowMinutes: useIdentity || useWalletObservation ? 30 : 60,
+    methodologyVersion: "3.1",
     identityNotice: useIdentity
-      ? "Bot除外と高信頼クラスタリングを通過した推定ユニーク購入者を使用"
-      : "価格・時価総額は複数ソース照合済み。人物推定データが未達のため順位は買い出来高プロキシ",
+      ? "Bot除外と高信頼クラスタリング後の推定アクティブ買い手を使用"
+      : useWalletObservation
+        ? "公開取引の署名ウォレットを重複・Bot・極小取引で補正した推定値。人物数そのものではありません"
+        : "人物推定データが未達のため、順位は市場取引量による暫定値です",
     publication: {
       state: publicationState,
       tokenNavEligible,
-      sourceQuorum: healthySources,
+      sourceQuorum: healthyMarketSources,
       consensusConstituents,
       chainVerifiedConstituents,
       safeAuthorityConstituents,
+      demandObservedConstituents,
+      completeDemandConstituents,
       reasons,
     },
     dataSources,
     constituents,
   };
+}
+
+function hasMarketConsensus(coin: MarketCandidate) {
+  return (
+    (coin.marketSources?.length ?? 0) >= 2 &&
+    (coin.priceDivergenceBps ?? Number.POSITIVE_INFINITY) <=
+      MAX_PRICE_DIVERGENCE_BPS &&
+    (coin.marketCapDivergenceBps ?? Number.POSITIVE_INFINITY) <=
+      MAX_MARKET_CAP_DIVERGENCE_BPS &&
+    (coin.marketConfidence ?? 0) >= MIN_MARKET_CONFIDENCE
+  );
+}
+
+function rankingBuyUsd(
+  coin: MarketCandidate,
+  useIdentity: boolean,
+  useWalletObservation: boolean,
+) {
+  if (useIdentity) return coin.demand?.qualifiedBuyUsd ?? 0;
+  if (useWalletObservation) return coin.demand?.grossBuyUsd ?? 0;
+  return proxyBuyVolume(coin);
 }
 
 function proxyBuyVolume(coin: MarketCandidate) {
@@ -253,7 +331,18 @@ export const fallbackCandidates: MarketCandidate[] = [
   ["MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5", "MEW", "cat in a dogs world", 0.00037, 33_000_000, 7_000_000, 5_000_000, 740, 680, 0.6],
   ["ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82", "BOME", "BOOK OF MEME", 0.00051, 35_000_000, 9_800_000, 12_000_000, 820, 760, 1.1],
 ].map(
-  ([tokenAddress, symbol, name, priceUsd, marketCap, liquidityUsd, volumeUsd, buys, sells, changePercent]) => ({
+  ([
+    tokenAddress,
+    symbol,
+    name,
+    priceUsd,
+    marketCap,
+    liquidityUsd,
+    volumeUsd,
+    buys,
+    sells,
+    changePercent,
+  ]) => ({
     tokenAddress: String(tokenAddress),
     symbol: String(symbol),
     name: String(name),

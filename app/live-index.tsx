@@ -21,7 +21,7 @@ export default function LiveIndex({
         const next = (await response.json()) as IndexSnapshot;
         if (active) setSnapshot(next);
       } catch {
-        // Keep the most recent successful snapshot visible.
+        // The last successful snapshot remains visible during a source outage.
       }
     };
     void refresh();
@@ -48,7 +48,7 @@ export default function LiveIndex({
         </div>
         <strong>{snapshot.value.toFixed(2)}</strong>
         <div className="float-bottom">
-          <span>1H WEIGHTED</span>
+          <span>{snapshot.windowMinutes}M MARKET-CAP WEIGHTED</span>
           <span className={snapshot.changePercent >= 0 ? "positive" : "negative"}>
             {signedPercent(snapshot.changePercent)}
           </span>
@@ -58,32 +58,42 @@ export default function LiveIndex({
   }
 
   const identityLive = snapshot.dataMode === "live-human-estimate";
+  const walletObservation =
+    snapshot.dataMode === "live-wallet-observation";
   const tokenNavEligible = snapshot.publication.tokenNavEligible;
   return (
     <div className="index-panel" aria-live="polite">
       <div className="feed-status">
         <div>
           <span className={`status-dot ${snapshot.isLive ? "" : "paused"}`} />
-          {snapshot.isLive ? "Market feed live" : "Fallback snapshot"}
+          {snapshot.isLive ? "オンライン集計中" : "検証用スナップショット"}
         </div>
-        <span>{new Date(snapshot.asOf).toLocaleString("ja-JP")}</span>
+        <span>
+          {new Date(snapshot.asOf).toLocaleString("ja-JP")}・60秒ごとに更新
+        </span>
       </div>
-      <div className={`identity-banner ${identityLive ? "ready" : ""}`}>
+      <div
+        className={`identity-banner ${
+          identityLive || walletObservation ? "ready" : ""
+        }`}
+      >
         <strong>
           {tokenNavEligible
-            ? "Token NAV publishable"
+            ? "トークンNAV公開可能"
             : identityLive
-              ? "Human estimate live · NAV gated"
-              : "Index live · token NAV gated"}
+              ? "人物推定稼働・NAV審査中"
+              : walletObservation
+                ? "買い手観測稼働・人物判定未達"
+                : "市場プロキシ稼働・人物判定未達"}
         </strong>
         <span>{snapshot.identityNotice}</span>
       </div>
       <div className="table-head live-table-head" aria-hidden="true">
-        <span>Asset</span>
-        <span>Buy amount</span>
-        <span>Est. users</span>
-        <span>{snapshot.windowMinutes}m</span>
-        <span>Market-cap weight</span>
+        <span>銘柄</span>
+        <span>30分購入総額</span>
+        <span>推定アクティブ買い手</span>
+        <span>観測ウォレット</span>
+        <span>時価総額ウェイト</span>
       </div>
       <div className="asset-list">
         {snapshot.constituents.map((coin) => (
@@ -95,17 +105,24 @@ export default function LiveIndex({
               <span className="rank">0{coin.rank}</span>
               <div>
                 <strong>{coin.symbol}</strong>
-                <small>{coin.name}</small>
+                <small>
+                  {coin.name}
+                  {coin.demandCoverageComplete === false ? "・下限値" : ""}
+                </small>
               </div>
             </div>
-            <span className="market-value">{formatUsd(coin.rankingBuyUsd)}</span>
+            <span className="market-value">
+              {formatUsd(coin.rankingBuyUsd)}
+            </span>
             <span className="market-value">
               {coin.estimatedUsers === null
                 ? "—"
                 : coin.estimatedUsers.toLocaleString("ja-JP")}
             </span>
-            <span className={coin.changePercent >= 0 ? "positive" : "negative"}>
-              {signedPercent(coin.changePercent)}
+            <span className="market-value">
+              {coin.observedBuyerWallets === null
+                ? "—"
+                : coin.observedBuyerWallets.toLocaleString("ja-JP")}
             </span>
             <div className="weight-cell">
               <strong>{(coin.weight * 100).toFixed(2)}%</strong>
@@ -118,16 +135,15 @@ export default function LiveIndex({
       </div>
       <div className="panel-note">
         <span>ⓘ</span>
-        {identityLive
-          ? "有効買い総額は、Bot除外後に1ユーザー当たり$10,000で上限処理した値です。"
-          : "人間推定フィードが基準を満たすまで、買い出来高プロキシによる暫定順位です。ウォレット数はユーザー数として表示しません。"}
+        推定アクティブ買い手は、署名ウォレットの重複を除き、短時間の連続取引と
+        1 USD未満の極小購入を除外した参考値です。人物を特定する数値ではありません。
       </div>
       <div className="panel-note">
         <span>✓</span>
-        市場データ合意 {snapshot.publication.consensusConstituents}/5 ·
-        独立ソース {snapshot.publication.sourceQuorum}/2 ·
-        オンチェーン検証 {snapshot.publication.chainVerifiedConstituents}/5 ·
-        トークンNAV{" "}
+        市場合意 {snapshot.publication.consensusConstituents}/5・買い手観測{" "}
+        {snapshot.publication.demandObservedConstituents}/5・30分網羅{" "}
+        {snapshot.publication.completeDemandConstituents}/5・オンチェーン検証{" "}
+        {snapshot.publication.chainVerifiedConstituents}/5・トークンNAV{" "}
         {snapshot.publication.tokenNavEligible ? "公開可能" : "自動停止中"}
       </div>
     </div>

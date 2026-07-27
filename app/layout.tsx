@@ -22,16 +22,16 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(`${protocol}://${host}`),
-    title: "MT5 — Human Demand Meme Index",
+    title: "MT5 — Active Buyer Meme Index",
     description:
-      "直近30分で多くの推定ユーザーが買ったミームコイン5銘柄を、リアルタイム時価総額加重で追跡する研究指数。",
+      "直近30分の推定アクティブ買い手と購入総額からSolanaミームコイン5銘柄を選び、時価総額加重で追跡する公開研究指数。",
     icons: {
       icon: "/mt5-brand.jpeg",
       shortcut: "/mt5-brand.jpeg",
     },
     openGraph: {
-      title: "MT5 — Human Demand Meme Index",
-      description: "ウォレットではなく、人の買いを測る。",
+      title: "MT5 — Active Buyer Meme Index",
+      description: "人気ではなく、実際の買いを見る。",
       type: "website",
       locale: "ja_JP",
       images: [
@@ -45,8 +45,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "MT5 — Human Demand Meme Index",
-      description: "ウォレットではなく、人の買いを測る。",
+      title: "MT5 — Active Buyer Meme Index",
+      description: "人気ではなく、実際の買いを見る。",
       images: ["/og.png"],
     },
   };

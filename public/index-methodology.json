@@ -1,18 +1,23 @@
 {
-  "name": "Meme Top 5 Human Demand Index",
+  "name": "Meme Top 5 Active Buyer Index",
   "symbol": "MT5",
-  "version": "3.0",
+  "version": "3.1",
   "currency": "USD",
   "marketRefreshSeconds": 60,
   "demandWindowMinutes": 30,
   "selection": {
     "constituents": 5,
-    "dynamicDiscovery": "must appear in both DEX Screener promoted profiles and GeckoTerminal Solana trending pools; curated seeds remain eligible",
-    "ranking": "qualified buy USD after bot filtering and entity clustering",
-    "minimumEstimatedUsers": 25,
-    "minimumIdentityConfidence": 0.65,
-    "maximumQualifiedBuyUsdPerEstimatedUser": 10000,
-    "fallbackRanking": "buy-volume proxy, explicitly not publishable as token NAV"
+    "discovery": "DEX Screener and GeckoTerminal Solana discovery plus the curated seed universe",
+    "ranking": "30-minute gross buy USD among coins with observed buyers",
+    "buyerEstimate": "unique signing wallets after transaction deduplication, burst-automation filtering, and sub-1-USD dust filtering",
+    "maximumQualifiedBuyUsdPerEstimatedBuyer": 10000,
+    "fallbackRanking": "one-hour buy-volume proxy, explicitly not publishable as token NAV"
+  },
+  "coverage": {
+    "primaryPoolOnly": true,
+    "maximumRecentTradesPerPool": 300,
+    "completeWhen": "the response contains fewer than 300 trades or its oldest trade predates the 30-minute cutoff",
+    "incompleteHandling": "publish as an explicitly labeled lower bound"
   },
   "eligibility": {
     "minimumMarketCapUsd": 1000000,
@@ -24,20 +29,19 @@
     "requireOnchainMintVerification": true,
     "requireRevokedMintAndFreezeAuthoritiesForTokenNav": true
   },
-  "weighting": "free-float market capitalization when verified; unverified FDV is not accepted",
+  "weighting": "verified market capitalization",
   "publication": {
-    "states": [
-      "publishable",
-      "degraded",
-      "halted"
-    ],
+    "states": ["publishable", "degraded", "halted"],
     "failClosed": true,
     "tokenNavRequiresHumanEstimate": true,
-    "tokenNavRequiresFiveConsensusConstituents": true
+    "tokenNavRequiresFiveConsensusConstituents": true,
+    "walletDerivedBuyerEstimateIsNotHumanIdentity": true
   },
   "limitations": [
     "A blockchain address is not a person.",
-    "Entity clustering remains an estimate and must publish confidence.",
+    "The active-buyer estimate does not currently merge multiple wallets controlled by one person.",
+    "Primary-pool observations may omit trades on other pools.",
+    "A saturated 300-trade response is a lower bound.",
     "The rolling public index is not itself a redeemable financial product."
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "updatedAt": "2026-07-27",
   "policy": {
     "minimumIndependentMarketSources": 2,
@@ -34,13 +34,20 @@
         "verified market cap when available",
         "liquidity",
         "volume",
-        "buyer-wallet counts"
+        "buyer-wallet counts",
+        "primary-pool trade signatures",
+        "30-minute buy USD"
       ],
       "authentication": "none",
       "cost": "free keyless public API",
       "officialDocumentation": "https://docs.coingecko.com/docs/keyless-public-api",
       "rateLimit": "30 calls per minute",
-      "productionRole": "independent market source B"
+      "productionRole": "independent market source B and online active-buyer observation",
+      "limitations": [
+        "Pool trades are limited to the most recent 300 observations.",
+        "The service marks saturated 30-minute windows as lower bounds.",
+        "A signing wallet is not treated as a verified person."
+      ]
     },
     {
       "id": "jupiter-price",
@@ -80,13 +87,14 @@
         "mint existence",
         "supply and decimals",
         "mint authority",
-        "freeze authority"
+        "freeze authority",
+        "request-driven primary-pool transaction sampling"
       ],
       "authentication": "encrypted API key",
       "cost": "free plan, 1 million monthly credits",
       "officialDocumentation": "https://www.helius.dev/docs/billing/credits",
       "rateLimits": "https://www.helius.dev/docs/billing/rate-limits",
-      "productionRole": "independent on-chain verification",
+      "productionRole": "independent on-chain verification and a D1-leased demand fallback capped at one pool per minute and five new transactions per poll",
       "limitations": [
         "Not counted as a third market-price source.",
         "The free plan has no production SLA."

@@ -34,3 +34,10 @@ export const indexSnapshots = sqliteTable(
   },
   (table) => [index("index_snapshots_time_idx").on(table.timestamp)],
 );
+
+export const collectorState = sqliteTable("collector_state", {
+  id: text("id").primaryKey(),
+  cursor: integer("cursor").notNull().default(0),
+  nextDue: integer("next_due").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+});

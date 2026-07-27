@@ -8,23 +8,23 @@ const devnetExplorer = `https://explorer.solana.com/address/${devnetMint}?cluste
 const methodology = [
   {
     number: "01",
-    title: "直近30分を集計",
-    body: "Solana上のミームコイン売買を継続取得し、買い側のUSD金額を30分のローリング窓で集計します。",
+    title: "直近30分を観測",
+    body: "Solana上の対象ミームコインについて、主要プールの公開取引を60秒ごとに取得し、30分のローリング窓で集計します。",
   },
   {
     number: "02",
-    title: "ウォレットを人へ寄せる",
-    body: "Botを除外し、資金源と取引パターンが一致する場合だけ複数ウォレットを同一クラスタに統合します。",
+    title: "買い手を重複除外",
+    body: "署名ウォレットとトランザクションを重複除外し、短時間の連続取引や極小購入をBot候補として分離します。",
   },
   {
     number: "03",
-    title: "買い総額で上位5",
-    body: "推定ユーザー25以上、十分な流動性、信頼度65%以上を満たす銘柄を有効買い総額で順位付けします。",
+    title: "購入総額で上位5銘柄",
+    body: "買い手が観測された銘柄を30分の購入総額で順位付けします。観測が不足する場合は市場取引量プロキシへ安全に切り替えます。",
   },
   {
     number: "04",
     title: "時価総額で加重",
-    body: "採用5銘柄の価格変動を、各銘柄の時価総額比率で加重平均し、指数値として15秒ごとに更新します。",
+    body: "採用5銘柄の価格変動を、複数データ源で照合した時価総額の比率で加重し、指数値として公開します。",
   },
 ];
 
@@ -36,13 +36,13 @@ export default function Home() {
           <span className="brand-mark">M5</span>
           <span>
             Meme Top 5
-            <small>Human Demand Index</small>
+            <small>Active Buyer Index</small>
           </span>
         </a>
         <div className="nav-links">
           <a href="#index">リアルタイム指数</a>
           <a href="#methodology">算出ルール</a>
-          <a href="#launch">トークン</a>
+          <a href="#launch">トークン方針</a>
         </div>
         <a className="nav-cta" href="/api/index">
           Open API
@@ -53,27 +53,27 @@ export default function Home() {
         <div className="hero-copy">
           <div className="kicker">
             <span className="live-dot" />
-            SOLANA · 25 SECOND CONSENSUS REFRESH
+            SOLANA・30 MINUTE ROLLING WINDOW
           </div>
           <h1>
-            ウォレットではなく、
+            人気ではなく、
             <br />
-            <em>人の買いを測る。</em>
+            <em>実際の買い</em>を見る。
           </h1>
           <p className="hero-lede">
-            MT5は、直近30分で多くの推定ユーザーが買った総額の大きいミームコイン5銘柄を選び、
-            価格変動を独立した2つの市場データ源で照合し、時価総額加重平均で示す研究指数です。
+            MT5は、直近30分の推定アクティブ買い手と購入総額からSolanaミームコイン5銘柄を選び、
+            価格変動を時価総額加重で示す公開研究指数です。
           </p>
           <div className="hero-actions">
             <a className="button primary" href="#index">
-              現在の指数を見る <span aria-hidden="true">↓</span>
+              現在の指数を見る <span aria-hidden="true">→</span>
             </a>
             <a className="button secondary" href="#methodology">
               算出ルール
             </a>
           </div>
           <p className="microcopy">
-            投資商品ではありません · ウォレット数をユーザー数とは表示しません · 研究用
+            投資商品ではありません・人物を特定しません・研究用公開データ
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function Home() {
           <div className="image-frame">
             <Image
               src="/mt5-brand.jpeg"
-              alt="赤い上向き矢印と上昇する棒グラフ"
+              alt="赤い上昇矢印と棒グラフ"
               fill
               priority
               sizes="(max-width: 900px) 100vw, 48vw"
@@ -102,12 +102,12 @@ export default function Home() {
             <span>Selected coins</span>
           </div>
           <div>
-            <strong>25s</strong>
-            <span>Market refresh</span>
+            <strong>60s</strong>
+            <span>Public refresh</span>
           </div>
           <div>
-            <strong>Human</strong>
-            <span>Identity estimate</span>
+            <strong>3+</strong>
+            <span>Independent sources</span>
           </div>
         </div>
       </section>
@@ -119,7 +119,8 @@ export default function Home() {
             <h2>現在のトップ5</h2>
           </div>
           <p className="section-summary">
-            選定は買い総額、値動きは時価総額加重。データの確度も同時に表示します。
+            GeckoTerminalの主要プール取引をオンライン集計し、DEX Screener・Jupiter・
+            Heliusで価格、時価総額、Mint情報を照合します。
           </p>
         </div>
         <LiveIndex initial={fallbackSnapshot} />
@@ -128,15 +129,16 @@ export default function Home() {
       <section className="method-section" id="methodology">
         <div className="shell">
           <div className="method-intro">
-            <span className="section-label light">METHODOLOGY 3.0</span>
+            <span className="section-label light">METHODOLOGY 3.1</span>
             <h2>
-              人気の数ではなく、
+              ウォレットを数えて、
               <br />
-              買いの広がりを見る。
+              人物とは言い切らない。
             </h2>
             <p>
-              1人が100個のウォレットで買っても、100人とは数えません。完全な本人確認ではなく、
-              オンチェーン上で説明可能な高信頼の推定値として公開します。
+              ブロックチェーンから確実に観測できるのは人物ではなく署名ウォレットです。
+              MT5はBot候補を除いた数を「推定アクティブ買い手」として表示し、
+              観測の網羅性と人物推定の限界を同時に公開します。
             </p>
           </div>
           <div className="method-grid">
@@ -153,29 +155,29 @@ export default function Home() {
 
       <section className="section shell risk-section">
         <div className="risk-copy">
-          <span className="section-label">IDENTITY LIMITS</span>
-          <h2>「ユーザー数」は推定値。</h2>
+          <span className="section-label">DATA QUALITY</span>
+          <h2>足りないデータは、足りないと表示する。</h2>
           <p>
-            ブロックチェーンに人間の身元は記録されません。MT5はBotらしさ、共通資金源、
-            同期した売買パターンを使い、証拠が揃った場合だけウォレットを統合します。
-            誤統合と見逃しは残るため、信頼度を必ず併記します。
+            主要プールのAPIは直近300取引までです。30分内に300件を超える場合、
+            買い手数と購入額は下限値として表示します。外部データ源の停止や価格不一致を検出した場合、
+            指数を縮退表示し、指数連動トークンのNAV公開は自動停止します。
           </p>
         </div>
         <div className="risk-list">
           <div>
             <span>01</span>
             <strong>Bot filter</strong>
-            <small>高頻度・機械的な反復売買をランキングから除外</small>
+            <small>高頻度の連続購入と極小取引を推定買い手から除外</small>
           </div>
           <div>
             <span>02</span>
-            <strong>Cluster confidence</strong>
-            <small>資金源だけで人を断定せず、複数の一致信号を要求</small>
+            <strong>Coverage flag</strong>
+            <small>30分を網羅できない銘柄を下限値として明示</small>
           </div>
           <div>
             <span>03</span>
             <strong>Market-cap weight</strong>
-            <small>採用後の指数変動は時価総額比率で加重平均</small>
+            <small>採用後の指数変動は検証済み時価総額比率で加重</small>
           </div>
         </div>
       </section>
@@ -184,12 +186,10 @@ export default function Home() {
         <div className="shell closing-inner">
           <div>
             <span className="section-label light">MAINNET RELEASE GATE</span>
-            <h2>指数は稼働。Mainnet発行は自動停止中。</h2>
+            <h2>指数はオンライン。資産発行は安全条件がそろうまで停止。</h2>
             <p>
-              DEX Screener、GeckoTerminal、Jupiterのうち2系統の価格合意、
-              人物推定、カストディ、
-              監査、法的確認がすべて揃うまでMainnetへの発行と入金を拒否します。
-              現在のMT5Rは無価値の研究用Devnetトークンであり、指数持分や償還請求権ではありません。
+              現在のMT5Rは無価値の研究用Devnetトークンです。価格合意、人物推定、
+              カストディ、監査、法務確認がすべて完了するまで、Mainnet発行や入金は行いません。
             </p>
             <code className="mint-address">{devnetMint}</code>
           </div>
@@ -217,14 +217,13 @@ export default function Home() {
           <span className="brand-mark">M5</span>
           <span>
             Meme Top 5
-            <small>Human Demand Index</small>
+            <small>Active Buyer Index</small>
           </span>
         </div>
         <p>
-          MT5は研究用プロトタイプです。暗号資産、金融商品、投資助言、価値保証、
-          保管、償還、トークン販売を提供するものではありません。
+          MT5は研究用プロトタイプです。暗号資産・金融商品・投資助言・価値保証・
+          保管・送金・トークン販売を提供するものではありません。
         </p>
-        <p>Market price cross-check powered by Jupiter.</p>
         <span>© 2026 MT5 Research</span>
       </footer>
     </main>

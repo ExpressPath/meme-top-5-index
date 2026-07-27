@@ -38,12 +38,16 @@ type SourceQuote = {
   buys: number;
   sells: number;
   buyerWallets30m?: number;
+  buyVolumeUsd30m?: number;
+  demandCoverage?: "aggregate" | "none";
+  primaryPoolAddress?: string;
   changePercent: number;
   imageUrl?: string;
 };
 
 type DexPair = {
   chainId?: string;
+  pairAddress?: string;
   baseToken?: { address?: string; symbol?: string; name?: string };
   priceUsd?: string;
   txns?: { h1?: { buys?: number; sells?: number } };
@@ -282,6 +286,7 @@ async function fetchDexScreenerQuotes(addresses: string[]) {
       volumeUsd: finite(pair.volume?.h1),
       buys: finite(pair.txns?.h1?.buys),
       sells: finite(pair.txns?.h1?.sells),
+      primaryPoolAddress: pair.pairAddress?.trim() || undefined,
       changePercent: finite(pair.priceChange?.h1),
       imageUrl: safeImageUrl(pair.info?.imageUrl),
     }),
@@ -372,6 +377,13 @@ async function fetchGeckoTerminalQuotes(addresses: string[]) {
         buys: finite(h1.buys),
         sells: finite(h1.sells),
         buyerWallets30m: finite(m30.buyers),
+        buyVolumeUsd30m: estimateBuyVolume(
+          finite(volume.m30),
+          finite(m30.buys),
+          finite(m30.sells),
+        ),
+        demandCoverage: "aggregate",
+        primaryPoolAddress: stripNetworkPrefix(pool?.id),
         changePercent: finite(priceChange.h1),
         imageUrl: safeImageUrl(stringValue(tokenAttributes.image_url)),
       };
@@ -445,6 +457,21 @@ function mergeQuotes(quotes: SourceQuote[]): MarketCandidate[] {
       buyerWallets30m:
         tokenQuotes.find((quote) => quote.buyerWallets30m !== undefined)
           ?.buyerWallets30m ?? null,
+      buyVolumeUsd30m:
+        tokenQuotes.find((quote) => quote.buyVolumeUsd30m !== undefined)
+          ?.buyVolumeUsd30m ?? null,
+      primaryPoolAddress:
+        tokenQuotes.find((quote) => quote.primaryPoolAddress)
+          ?.primaryPoolAddress,
+      demand:
+        demandFromAggregate(
+          tokenAddress,
+          tokenQuotes.find(
+            (quote) =>
+              quote.buyerWallets30m !== undefined &&
+              quote.buyVolumeUsd30m !== undefined,
+          ),
+        ),
       changePercent: median(
         tokenQuotes.map((quote) => quote.changePercent),
       ),
@@ -582,6 +609,30 @@ function minimumRelativeSpread(values: number[]) {
     }
   }
   return minimum;
+}
+
+function estimateBuyVolume(volumeUsd: number, buys: number, sells: number) {
+  const trades = buys + sells;
+  return trades > 0 ? volumeUsd * (buys / trades) : 0;
+}
+
+function demandFromAggregate(
+  tokenAddress: string,
+  quote: SourceQuote | undefined,
+) {
+  if (!quote || quote.buyerWallets30m === undefined) return undefined;
+  return {
+    tokenAddress,
+    grossBuyUsd: quote.buyVolumeUsd30m ?? 0,
+    qualifiedBuyUsd: quote.buyVolumeUsd30m ?? 0,
+    observedBuyerWallets: quote.buyerWallets30m,
+    estimatedUsers: 0,
+    identityConfidence: 0,
+    coverageComplete: false,
+    observedTrades: quote.buys,
+    filteredWallets: 0,
+    source: "geckoterminal-pool-aggregate",
+  };
 }
 
 function finite(value: unknown) {
