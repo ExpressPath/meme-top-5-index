@@ -99,6 +99,10 @@ export type MarketDataBundle = {
 
 export async function fetchMarketData(
   seedAddresses: string[],
+  credentials: {
+    jupiterApiKey?: string;
+    heliusApiKey?: string;
+  } = {},
 ): Promise<MarketDataBundle> {
   const observedAt = new Date().toISOString();
   const [dexDiscovery, geckoDiscovery] = await Promise.allSettled([
@@ -122,7 +126,9 @@ export async function fetchMarketData(
   const [dexResult, geckoResult, jupiterResult] = await Promise.all([
     timedSource("dexscreener", () => fetchDexScreenerQuotes(addresses)),
     timedSource("geckoterminal", () => fetchGeckoTerminalQuotes(addresses)),
-    timedSource("jupiter-price", () => fetchJupiterQuotes(seedAddresses)),
+    timedSource("jupiter-price", () =>
+      fetchJupiterQuotes(seedAddresses, credentials),
+    ),
   ]);
 
   const sourceHealth: DataSourceHealth[] = [
@@ -149,9 +155,17 @@ export async function fetchMarketData(
   };
 }
 
-async function fetchJupiterQuotes(addresses: string[]) {
-  const jupiterApiKey = process.env.JUPITER_API_KEY;
-  const heliusApiKey = process.env.HELIUS_API_KEY;
+async function fetchJupiterQuotes(
+  addresses: string[],
+  credentials: {
+    jupiterApiKey?: string;
+    heliusApiKey?: string;
+  },
+) {
+  const jupiterApiKey =
+    credentials.jupiterApiKey ?? process.env.JUPITER_API_KEY;
+  const heliusApiKey =
+    credentials.heliusApiKey ?? process.env.HELIUS_API_KEY;
   if (!jupiterApiKey || !heliusApiKey) {
     throw new Error("JUPITER_API_KEY or HELIUS_API_KEY is not configured");
   }

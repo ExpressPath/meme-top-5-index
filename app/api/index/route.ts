@@ -98,7 +98,10 @@ async function createSnapshot(
   runtimeEnv: Awaited<ReturnType<typeof getRuntimeEnv>>,
 ) {
   const asOf = new Date();
-  const marketData = await fetchMarketData(SEED_ADDRESSES);
+  const marketData = await fetchMarketData(SEED_ADDRESSES, {
+    jupiterApiKey: runtimeEnv.JUPITER_API_KEY,
+    heliusApiKey: runtimeEnv.HELIUS_API_KEY,
+  });
   const prePollSnapshot = buildSnapshot(
     marketData.candidates,
     asOf.toISOString(),
@@ -346,6 +349,7 @@ async function readDemandSignals(database?: D1Database) {
 async function getRuntimeEnv(): Promise<{
   DB?: D1Database;
   HELIUS_API_KEY?: string;
+  JUPITER_API_KEY?: string;
   CRON_SECRET?: string;
   SNAPSHOT_SIGNING_PRIVATE_KEY?: string;
   SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
@@ -356,6 +360,7 @@ async function getRuntimeEnv(): Promise<{
     const runtime = workers.env as unknown as {
       DB?: D1Database;
       HELIUS_API_KEY?: string;
+      JUPITER_API_KEY?: string;
       CRON_SECRET?: string;
       SNAPSHOT_SIGNING_PRIVATE_KEY?: string;
       SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
@@ -365,10 +370,13 @@ async function getRuntimeEnv(): Promise<{
       ...runtime,
       HELIUS_API_KEY:
         runtime.HELIUS_API_KEY ?? process.env.HELIUS_API_KEY,
+      JUPITER_API_KEY:
+        runtime.JUPITER_API_KEY ?? process.env.JUPITER_API_KEY,
     };
   } catch {
     return {
       HELIUS_API_KEY: process.env.HELIUS_API_KEY,
+      JUPITER_API_KEY: process.env.JUPITER_API_KEY,
       CRON_SECRET: process.env.CRON_SECRET,
       SNAPSHOT_SIGNING_PRIVATE_KEY:
         process.env.SNAPSHOT_SIGNING_PRIVATE_KEY,
