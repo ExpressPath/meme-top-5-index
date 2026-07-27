@@ -10,9 +10,12 @@ const gate = JSON.parse(await readFile(gateUrl, "utf8"));
 const evidenceUrl = new URL("../token/release-evidence.json", import.meta.url);
 const evidence = JSON.parse(await readFile(evidenceUrl, "utf8"));
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const indexUrl =
+const OFFICIAL_INDEX_ORIGIN =
+  "https://mt5-online-index.meme-top-5-index.workers.dev";
+const configuredIndexUrl =
   process.env.MT5_INDEX_URL ??
-  "https://mt5-online-index.meme-top-5-index.workers.dev/api/index";
+  `${OFFICIAL_INDEX_ORIGIN}/api/index`;
+const indexUrl = validateIndexUrl(configuredIndexUrl);
 const failures = [];
 
 for (const checkId of gate.evidenceRequirements ?? []) {
@@ -192,10 +195,10 @@ try {
 }
 
 try {
-  const shadowUrl = new URL(
-    gate.shadowRequirements.endpoint,
-    indexUrl,
-  );
+  if (gate.shadowRequirements.endpoint !== "/api/shadow-readiness") {
+    failures.push("shadow-readiness endpoint policy was modified");
+  }
+  const shadowUrl = new URL("/api/shadow-readiness", OFFICIAL_INDEX_ORIGIN);
   const response = await fetch(shadowUrl, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(10_000),
@@ -243,6 +246,21 @@ if (failures.length > 0) {
   process.exitCode = 2;
 } else {
   console.log("MAINNET RELEASE GATES PASSED");
+}
+
+function validateIndexUrl(value) {
+  const url = new URL(value);
+  if (
+    url.origin !== OFFICIAL_INDEX_ORIGIN ||
+    url.pathname !== "/api/index" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("MT5_INDEX_URL must be the reviewed production index URL");
+  }
+  return url.href;
 }
 
 async function verifySnapshotResponse(response, body, endpoint, output) {

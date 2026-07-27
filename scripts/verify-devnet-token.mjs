@@ -7,15 +7,25 @@ const deploymentUrl = new URL(
   import.meta.url,
 );
 const deployment = JSON.parse(await readFile(deploymentUrl, "utf8"));
+const EXPECTED_MINT_ADDRESS =
+  "ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt";
+const EXPECTED_TOKEN_ACCOUNT =
+  "FotYC7bBBjApAdMxRF9F88hLUdDHQm9u4FukGJyFtxzB";
+if (
+  deployment.mintAddress !== EXPECTED_MINT_ADDRESS ||
+  deployment.tokenAccount !== EXPECTED_TOKEN_ACCOUNT
+) {
+  throw new Error("Devnet deployment addresses do not match the reviewed release");
+}
 const rpcUrl =
   process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com";
 
 const mint = await rpc("getAccountInfo", [
-  deployment.mintAddress,
+  EXPECTED_MINT_ADDRESS,
   { encoding: "jsonParsed", commitment: "confirmed" },
 ]);
 const tokenAccount = await rpc("getTokenAccountBalance", [
-  deployment.tokenAccount,
+  EXPECTED_TOKEN_ACCOUNT,
   { commitment: "confirmed" },
 ]);
 

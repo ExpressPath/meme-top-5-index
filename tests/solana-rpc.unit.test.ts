@@ -11,7 +11,7 @@ test("fails over from PublicNode to the official Solana endpoint", async () => {
     fetcher: async (input) => {
       const url = String(input);
       requested.push(url);
-      if (url.includes("publicnode.com")) {
+      if (new URL(url).hostname === "solana-rpc.publicnode.com") {
         return new Response("blocked", { status: 403 });
       }
       return Response.json({ jsonrpc: "2.0", id: "slot-test", result: 42 });
