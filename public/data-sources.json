@@ -4,7 +4,7 @@
   "policy": {
     "minimumIndependentMarketSources": 2,
     "maximumPriceDivergenceBps": 500,
-    "maximumMarketCapDivergenceBps": 2000,
+    "maximumMarketCapDivergenceBps": 2500,
     "maximumSnapshotAgeSeconds": 90,
     "failClosed": true,
     "walletsAreUsers": false
@@ -41,6 +41,20 @@
       "officialDocumentation": "https://docs.coingecko.com/docs/keyless-public-api",
       "rateLimit": "30 calls per minute",
       "productionRole": "independent market source B"
+    },
+    {
+      "id": "jupiter-price",
+      "role": [
+        "independent price cross-check",
+        "liquidity",
+        "market cap recomputed from Helius-verified onchain supply"
+      ],
+      "authentication": "encrypted API key",
+      "cost": "free plan, 1 request per second",
+      "officialDocumentation": "https://developers.jup.ag/docs/api-reference/price",
+      "pricing": "https://developers.jup.ag/pricing",
+      "productionRole": "independent market source C and fallback when GeckoTerminal is rate-limited",
+      "attribution": "Powered by Jupiter"
     },
     {
       "id": "birdeye-standard",

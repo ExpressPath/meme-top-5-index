@@ -82,7 +82,7 @@ const MIN_ESTIMATED_USERS = 25;
 const MIN_IDENTITY_CONFIDENCE = 0.65;
 const MIN_MARKET_CONFIDENCE = 0.65;
 const MAX_PRICE_DIVERGENCE_BPS = 500;
-const MAX_MARKET_CAP_DIVERGENCE_BPS = 2_000;
+const MAX_MARKET_CAP_DIVERGENCE_BPS = 2_500;
 
 export function buildSnapshot(
   candidates: MarketCandidate[],

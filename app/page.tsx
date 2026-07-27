@@ -186,7 +186,8 @@ export default function Home() {
             <span className="section-label light">MAINNET RELEASE GATE</span>
             <h2>指数は稼働。Mainnet発行は自動停止中。</h2>
             <p>
-              DEX ScreenerとGeckoTerminalの価格合意、人物推定、カストディ、
+              DEX Screener、GeckoTerminal、Jupiterのうち2系統の価格合意、
+              人物推定、カストディ、
               監査、法的確認がすべて揃うまでMainnetへの発行と入金を拒否します。
               現在のMT5Rは無価値の研究用Devnetトークンであり、指数持分や償還請求権ではありません。
             </p>
@@ -223,6 +224,7 @@ export default function Home() {
           MT5は研究用プロトタイプです。暗号資産、金融商品、投資助言、価値保証、
           保管、償還、トークン販売を提供するものではありません。
         </p>
+        <p>Market price cross-check powered by Jupiter.</p>
         <span>© 2026 MT5 Research</span>
       </footer>
     </main>

@@ -5,6 +5,8 @@ import type {
 
 const DEX_SCREENER_API = "https://api.dexscreener.com";
 const GECKO_TERMINAL_API = "https://api.geckoterminal.com/api/v2";
+const JUPITER_PRICE_API = "https://api.jup.ag/price/v3";
+const HELIUS_RPC_API = "https://mainnet.helius-rpc.com";
 const MAX_CANDIDATES = 30;
 const REQUEST_TIMEOUT_MS = 5_000;
 const PRICE_DIVERGENCE_LIMIT_BPS = 500;
@@ -22,7 +24,7 @@ const NON_MEME_SYMBOLS = new Set([
   "PYTH",
 ]);
 
-type SourceName = "dexscreener" | "geckoterminal";
+type SourceName = "dexscreener" | "geckoterminal" | "jupiter-price";
 
 type SourceQuote = {
   source: SourceName;
@@ -71,6 +73,20 @@ type GeckoResponse = {
   included?: GeckoResource[];
 };
 
+type JupiterPriceResponse = Record<
+  string,
+  {
+    usdPrice?: number;
+    liquidity?: number;
+    priceChange24h?: number;
+  }
+>;
+
+type SolanaRpcResponse<T> = {
+  result?: T;
+  error?: { message?: string };
+};
+
 export type MarketDataBundle = {
   candidates: MarketCandidate[];
   sources: DataSourceHealth[];
@@ -99,9 +115,10 @@ export async function fetchMarketData(
     ...independentlyDiscovered,
   ]).slice(0, MAX_CANDIDATES);
 
-  const [dexResult, geckoResult] = await Promise.all([
+  const [dexResult, geckoResult, jupiterResult] = await Promise.all([
     timedSource("dexscreener", () => fetchDexScreenerQuotes(addresses)),
     timedSource("geckoterminal", () => fetchGeckoTerminalQuotes(addresses)),
+    timedSource("jupiter-price", () => fetchJupiterQuotes(seedAddresses)),
   ]);
 
   const sourceHealth: DataSourceHealth[] = [
@@ -113,10 +130,12 @@ export async function fetchMarketData(
       ...geckoResult.health,
       discoveryOk: geckoDiscovery.status === "fulfilled",
     },
+    jupiterResult.health,
   ];
   const quotes = [
     ...(dexResult.quotes ?? []),
     ...(geckoResult.quotes ?? []),
+    ...(jupiterResult.quotes ?? []),
   ];
 
   return {
@@ -124,6 +143,78 @@ export async function fetchMarketData(
     sources: sourceHealth,
     observedAt,
   };
+}
+
+async function fetchJupiterQuotes(addresses: string[]) {
+  const jupiterApiKey = process.env.JUPITER_API_KEY;
+  const heliusApiKey = process.env.HELIUS_API_KEY;
+  if (!jupiterApiKey || !heliusApiKey) {
+    throw new Error("JUPITER_API_KEY or HELIUS_API_KEY is not configured");
+  }
+
+  const checkedAddresses = unique(addresses).slice(0, 10);
+  const [prices, supplies] = await Promise.all([
+    fetchJson<JupiterPriceResponse>(
+      `${JUPITER_PRICE_API}?ids=${checkedAddresses.join(",")}`,
+      { "x-api-key": jupiterApiKey },
+    ),
+    fetchTokenSupplies(checkedAddresses, heliusApiKey),
+  ]);
+
+  return checkedAddresses.flatMap((tokenAddress): SourceQuote[] => {
+    const price = prices[tokenAddress];
+    const supply = supplies.get(tokenAddress);
+    const priceUsd = finite(price?.usdPrice);
+    if (!price || !supply || priceUsd <= 0) return [];
+
+    return [
+      {
+        source: "jupiter-price",
+        tokenAddress,
+        symbol: "UNKNOWN",
+        name: "Unknown token",
+        priceUsd,
+        marketCap: priceUsd * supply,
+        liquidityUsd: finite(price.liquidity),
+        volumeUsd: 0,
+        buys: 0,
+        sells: 0,
+        changePercent: finite(price.priceChange24h),
+      },
+    ];
+  });
+}
+
+async function fetchTokenSupplies(
+  addresses: string[],
+  heliusApiKey: string,
+) {
+  const endpoint = `${HELIUS_RPC_API}/?api-key=${encodeURIComponent(heliusApiKey)}`;
+  const results = await Promise.all(
+    addresses.map(async (address) => {
+      const response = await fetchJson<
+        SolanaRpcResponse<{ value?: { uiAmountString?: string } }>
+      >(
+        endpoint,
+        { "Content-Type": "application/json" },
+        {
+          jsonrpc: "2.0",
+          id: address,
+          method: "getTokenSupply",
+          params: [address, { commitment: "confirmed" }],
+        },
+      );
+      if (response.error) {
+        throw new Error(response.error.message || "getTokenSupply failed");
+      }
+      return [
+        address,
+        finite(response.result?.value?.uiAmountString),
+      ] as const;
+    }),
+  );
+
+  return new Map(results.filter(([, supply]) => supply > 0));
 }
 
 async function discoverDexScreener() {
@@ -315,17 +406,19 @@ function mergeQuotes(quotes: SourceQuote[]): MarketCandidate[] {
     const price = median(prices);
     const divergenceBps =
       prices.length >= 2
-        ? ((Math.max(...prices) - Math.min(...prices)) / price) * 10_000
+        ? minimumRelativeSpread(prices) * 10_000
         : null;
     const marketCapDivergenceBps =
-      marketCaps.length >= 2 ? relativeSpread(marketCaps) * 10_000 : null;
+      marketCaps.length >= 2
+        ? minimumRelativeSpread(marketCaps) * 10_000
+        : null;
     const hasPriceConsensus =
       sourceNames.length >= 2 &&
       divergenceBps !== null &&
       divergenceBps <= PRICE_DIVERGENCE_LIMIT_BPS;
     const marketCapAgreement =
       marketCaps.length >= 2
-        ? relativeSpread(marketCaps) <= 0.2
+        ? minimumRelativeSpread(marketCaps) <= 0.2
         : marketCaps.length === 1;
     const marketConfidence = clamp(
       (sourceNames.length >= 2 ? 0.4 : 0.15) +
@@ -346,9 +439,9 @@ function mergeQuotes(quotes: SourceQuote[]): MarketCandidate[] {
         liquidities.length >= 2
           ? Math.min(...liquidities)
           : median(liquidities),
-      volumeUsd: median(tokenQuotes.map((quote) => quote.volumeUsd)),
-      buys: Math.round(median(tokenQuotes.map((quote) => quote.buys))),
-      sells: Math.round(median(tokenQuotes.map((quote) => quote.sells))),
+      volumeUsd: maxFinite(tokenQuotes.map((quote) => quote.volumeUsd)),
+      buys: Math.round(maxFinite(tokenQuotes.map((quote) => quote.buys))),
+      sells: Math.round(maxFinite(tokenQuotes.map((quote) => quote.sells))),
       buyerWallets30m:
         tokenQuotes.find((quote) => quote.buyerWallets30m !== undefined)
           ?.buyerWallets30m ?? null,
@@ -404,14 +497,20 @@ async function timedSource(
   }
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string> = {},
+  body?: unknown,
+): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(url, {
-        headers: { Accept: "application/json" },
+        method: body === undefined ? "GET" : "POST",
+        headers: { Accept: "application/json", ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -466,9 +565,23 @@ function median(values: number[]) {
     : valid[middle];
 }
 
-function relativeSpread(values: number[]) {
-  const center = median(values);
-  return center > 0 ? (Math.max(...values) - Math.min(...values)) / center : 1;
+function maxFinite(values: number[]) {
+  const valid = values.filter(Number.isFinite);
+  return valid.length > 0 ? Math.max(...valid) : 0;
+}
+
+function minimumRelativeSpread(values: number[]) {
+  const valid = values.filter(positive);
+  if (valid.length < 2) return 1;
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let left = 0; left < valid.length - 1; left += 1) {
+    for (let right = left + 1; right < valid.length; right += 1) {
+      const center = (valid[left] + valid[right]) / 2;
+      const spread = Math.abs(valid[left] - valid[right]) / center;
+      minimum = Math.min(minimum, spread);
+    }
+  }
+  return minimum;
 }
 
 function finite(value: unknown) {

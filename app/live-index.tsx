@@ -25,7 +25,7 @@ export default function LiveIndex({
       }
     };
     void refresh();
-    const timer = window.setInterval(refresh, 15_000);
+    const timer = window.setInterval(refresh, 60_000);
     return () => {
       active = false;
       window.clearInterval(timer);

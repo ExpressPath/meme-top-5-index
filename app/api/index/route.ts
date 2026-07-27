@@ -8,7 +8,7 @@ import { fetchMarketData } from "../../../lib/market-data";
 import { verifySolanaMints } from "../../../lib/solana-verifier";
 
 const SEED_ADDRESSES = fallbackCandidates.map((coin) => coin.tokenAddress);
-const SNAPSHOT_TTL_MS = 25_000;
+const SNAPSHOT_TTL_MS = 60_000;
 
 let cachedSnapshot:
   | {
@@ -123,7 +123,7 @@ function indexResponse(snapshot: IndexSnapshot) {
   return Response.json(snapshot, {
     headers: {
       "Cache-Control":
-        "public, max-age=5, s-maxage=25, stale-while-revalidate=60",
+        "public, max-age=5, s-maxage=60, stale-while-revalidate=120",
       "Access-Control-Allow-Origin": "*",
       "X-MT5-Publication-State": snapshot.publication.state,
     },
