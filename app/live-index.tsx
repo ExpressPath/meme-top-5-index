@@ -69,7 +69,7 @@ export default function LiveIndex({
           {snapshot.isLive ? "オンライン集計中" : "検証用スナップショット"}
         </div>
         <span>
-          {new Date(snapshot.asOf).toLocaleString("ja-JP")}・60秒ごとに更新
+          {formatTimestamp(snapshot.asOf)}・60秒ごとに更新
         </span>
       </div>
       <div
@@ -161,4 +161,10 @@ function formatUsd(value: number) {
 
 function signedPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+  });
 }

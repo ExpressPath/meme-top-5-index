@@ -64,7 +64,12 @@ export type IndexSnapshot = {
     | "live-market-proxy"
     | "fallback";
   windowMinutes: number;
-  methodologyVersion: "3.1";
+  methodologyVersion: "4.0";
+  weighting: {
+    scheme: "capped-float-market-cap";
+    maximumConstituentWeight: number;
+    continuity: "divisor";
+  };
   identityNotice: string;
   publication: {
     state: "publishable" | "degraded" | "halted";
@@ -88,7 +93,8 @@ export type DataSourceHealth = {
     | "geckoterminal-trades"
     | "jupiter-price"
     | "helius-rpc"
-    | "helius-demand-poll";
+    | "solana-rpc"
+    | "solana-rpc-demand-poll";
   role: "market" | "chain" | "demand";
   ok: boolean;
   discoveryOk: boolean;
@@ -163,7 +169,10 @@ export function buildSnapshot(
     })
     .slice(0, 5);
 
-  const totalMarketCap = ranked.reduce((sum, coin) => sum + coin.marketCap, 0);
+  const weights = cappedMarketWeights(
+    ranked.map((coin) => coin.marketCap),
+    MAX_CONSTITUENT_WEIGHT,
+  );
   const selectionMode = useIdentity
     ? ("human-estimate" as const)
     : useWalletObservation
@@ -172,7 +181,7 @@ export function buildSnapshot(
   const constituents = ranked.map((coin, index): IndexConstituent => ({
     ...coin,
     rank: index + 1,
-    weight: totalMarketCap > 0 ? coin.marketCap / totalMarketCap : 0,
+    weight: weights[index] ?? 0,
     rankingBuyUsd: rankingBuyUsd(
       coin,
       useIdentity,
@@ -274,7 +283,12 @@ export function buildSnapshot(
           ? "live-market-proxy"
           : "fallback",
     windowMinutes: useIdentity || useWalletObservation ? 30 : 60,
-    methodologyVersion: "3.1",
+    methodologyVersion: "4.0",
+    weighting: {
+      scheme: "capped-float-market-cap",
+      maximumConstituentWeight: MAX_CONSTITUENT_WEIGHT,
+      continuity: "divisor",
+    },
     identityNotice: useIdentity
       ? "Bot除外と高信頼クラスタリング後の推定アクティブ買い手を使用"
       : useWalletObservation
@@ -360,3 +374,7 @@ export const fallbackSnapshot = buildSnapshot(
   fallbackCandidates,
   "2026-07-26T00:00:00.000Z",
 );
+import {
+  cappedMarketWeights,
+  MAX_CONSTITUENT_WEIGHT,
+} from "./weighting.ts";

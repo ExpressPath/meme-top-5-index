@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHmac, randomBytes } from "node:crypto";
 
 const required = ["HELIUS_API_KEY", "MT5_INGEST_URL", "MT5_INGEST_SECRET"];
 for (const key of required) {
@@ -283,17 +284,33 @@ function balancesByOwner(balances, tokenAddress) {
 }
 
 async function ingest(trades) {
+  const body = JSON.stringify({ trades });
   const response = await fetch(process.env.MT5_INGEST_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.MT5_INGEST_SECRET}`,
       "Content-Type": "application/json",
+      ...signedHeaders(body, "helius-collector"),
     },
-    body: JSON.stringify({ trades }),
+    body,
   });
   if (!response.ok) {
     throw new Error(`Ingest HTTP ${response.status}`);
   }
+}
+
+function signedHeaders(body, signerId) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = randomBytes(18).toString("base64url");
+  const canonical = `${timestamp}\n${nonce}\n${body}`;
+  const signature = createHmac("sha256", process.env.MT5_INGEST_SECRET)
+    .update(canonical)
+    .digest("base64url");
+  return {
+    "X-MT5-Signer": signerId,
+    "X-MT5-Timestamp": String(timestamp),
+    "X-MT5-Nonce": nonce,
+    "X-MT5-Signature": signature,
+  };
 }
 
 function indexUrl() {

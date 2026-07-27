@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { fallbackSnapshot } from "../lib/index-engine";
 import LiveIndex from "./live-index";
+import BackingStatus from "./backing-status";
 
 const devnetMint = "ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt";
 const devnetExplorer = `https://explorer.solana.com/address/${devnetMint}?cluster=devnet`;
@@ -23,8 +24,8 @@ const methodology = [
   },
   {
     number: "04",
-    title: "時価総額で加重",
-    body: "採用5銘柄の価格変動を、複数データ源で照合した時価総額の比率で加重し、指数値として公開します。",
+    title: "35%上限付き時価総額加重",
+    body: "採用5銘柄を時価総額で加重し、1銘柄35%を上限に集中を抑えます。日次リバランスとディバイザー調整で指数値を連続させます。",
   },
 ];
 
@@ -112,6 +113,10 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="section shell" id="backing">
+        <BackingStatus />
+      </section>
+
       <section className="section shell" id="index">
         <div className="section-heading">
           <div>
@@ -129,7 +134,7 @@ export default function Home() {
       <section className="method-section" id="methodology">
         <div className="shell">
           <div className="method-intro">
-            <span className="section-label light">METHODOLOGY 3.1</span>
+            <span className="section-label light">METHODOLOGY 4.0</span>
             <h2>
               ウォレットを数えて、
               <br />
@@ -176,8 +181,8 @@ export default function Home() {
           </div>
           <div>
             <span>03</span>
-            <strong>Market-cap weight</strong>
-            <small>採用後の指数変動は検証済み時価総額比率で加重</small>
+            <strong>Capped market-cap weight</strong>
+            <small>1銘柄35%上限とディバイザー継続で集中・入替ノイズを抑制</small>
           </div>
         </div>
       </section>

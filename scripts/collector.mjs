@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHmac, randomBytes } from "node:crypto";
 
 const required = ["BIRDEYE_API_KEY", "MT5_INGEST_URL", "MT5_INGEST_SECRET"];
 for (const key of required) {
@@ -204,18 +205,34 @@ function normalizeBirdeyeTrade(data, requestedAddress) {
 async function flushTrades(trades) {
   for (let index = 0; index < trades.length; index += 100) {
     const batch = trades.slice(index, index + 100);
+    const body = JSON.stringify({ trades: batch });
     const response = await fetch(process.env.MT5_INGEST_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.MT5_INGEST_SECRET}`,
         "Content-Type": "application/json",
+        ...signedHeaders(body, "birdeye-collector"),
       },
-      body: JSON.stringify({ trades: batch }),
+      body,
     });
     if (!response.ok) {
       throw new Error(`Ingest failed: HTTP ${response.status}`);
     }
   }
+}
+
+function signedHeaders(body, signerId) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = randomBytes(18).toString("base64url");
+  const canonical = `${timestamp}\n${nonce}\n${body}`;
+  const signature = createHmac("sha256", process.env.MT5_INGEST_SECRET)
+    .update(canonical)
+    .digest("base64url");
+  return {
+    "X-MT5-Signer": signerId,
+    "X-MT5-Timestamp": String(timestamp),
+    "X-MT5-Nonce": nonce,
+    "X-MT5-Signature": signature,
+  };
 }
 
 function extractItems(payload) {

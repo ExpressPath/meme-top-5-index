@@ -1,17 +1,17 @@
 {
   "name": "Meme Top 5 Active Buyer Index",
   "symbol": "MT5",
-  "version": "3.1",
+  "version": "4.0",
   "currency": "USD",
   "marketRefreshSeconds": 60,
   "demandWindowMinutes": 30,
   "selection": {
     "constituents": 5,
     "discovery": "DEX Screener and GeckoTerminal Solana discovery plus the curated seed universe",
-    "ranking": "30-minute gross buy USD among coins with observed buyers",
+    "ranking": "30-minute qualified buy USD when identity-quality coverage is complete",
     "buyerEstimate": "unique signing wallets after transaction deduplication, burst-automation filtering, and sub-1-USD dust filtering",
     "maximumQualifiedBuyUsdPerEstimatedBuyer": 10000,
-    "fallbackRanking": "one-hour buy-volume proxy, explicitly not publishable as token NAV"
+    "fallbackRanking": "wallet-observed gross buy USD, then one-hour market buy-volume proxy; fallbacks are not publishable as token NAV"
   },
   "coverage": {
     "primaryPoolOnly": true,
@@ -29,19 +29,38 @@
     "requireOnchainMintVerification": true,
     "requireRevokedMintAndFreezeAuthoritiesForTokenNav": true
   },
-  "weighting": "verified market capitalization",
+  "weighting": {
+    "scheme": "capped float-adjusted market capitalization",
+    "maximumConstituentWeight": 0.35,
+    "rebalance": "daily at 00:00 UTC and on emergency constituent replacement",
+    "continuity": "a basket-unit and index-divisor state preserves the index level across rebalances"
+  },
+  "backingTarget": {
+    "basketPercentOfReferenceLiability": 100,
+    "cashBufferPercentOfReferenceLiability": 2,
+    "minimumReserveRatioPercent": 102,
+    "maximumWeightDriftBps": 100,
+    "maximumReportAgeSeconds": 86400,
+    "minimumIndependentAttestations": 2,
+    "onchainVaultVerification": "Squads v4 owner, Token-2022 authorities, token balances and supply",
+    "maximumAttestationToChainDifferenceBps": 10,
+    "status": "design target; custody is not connected"
+  },
   "publication": {
     "states": ["publishable", "degraded", "halted"],
     "failClosed": true,
     "tokenNavRequiresHumanEstimate": true,
     "tokenNavRequiresFiveConsensusConstituents": true,
-    "walletDerivedBuyerEstimateIsNotHumanIdentity": true
+    "walletDerivedBuyerEstimateIsNotHumanIdentity": true,
+    "signedSnapshots": "Ed25519 signature and SHA-256 content digest",
+    "externalOracleAttestations": "two independent Ed25519 signers over the exact content digest"
   },
   "limitations": [
     "A blockchain address is not a person.",
-    "The active-buyer estimate does not currently merge multiple wallets controlled by one person.",
+    "The active-buyer estimate does not currently merge every wallet controlled by one person.",
     "Primary-pool observations may omit trades on other pools.",
     "A saturated 300-trade response is a lower bound.",
-    "The rolling public index is not itself a redeemable financial product."
+    "The rolling public index is not itself a redeemable financial product.",
+    "The 102% backing model is not evidence that reserve assets currently exist."
   ]
 }

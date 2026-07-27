@@ -1,4 +1,12 @@
-import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const trades = sqliteTable(
   "trades",
@@ -40,4 +48,73 @@ export const collectorState = sqliteTable("collector_state", {
   cursor: integer("cursor").notNull().default(0),
   nextDue: integer("next_due").notNull().default(0),
   updatedAt: integer("updated_at").notNull(),
+});
+
+export const indexState = sqliteTable("index_state", {
+  id: text("id").primaryKey(),
+  level: real("level").notNull(),
+  divisor: real("divisor").notNull(),
+  stateJson: text("state_json").notNull(),
+  lastRebalancedAt: integer("last_rebalanced_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const ingestNonces = sqliteTable(
+  "ingest_nonces",
+  {
+    nonce: text("nonce").primaryKey(),
+    signerId: text("signer_id").notNull(),
+    timestamp: integer("timestamp").notNull(),
+    receivedAt: integer("received_at").notNull(),
+  },
+  (table) => [index("ingest_nonces_received_idx").on(table.receivedAt)],
+);
+
+export const reserveReports = sqliteTable(
+  "reserve_reports",
+  {
+    reportId: text("report_id").notNull(),
+    signerId: text("signer_id").notNull(),
+    sequence: integer("sequence").notNull(),
+    asOf: integer("as_of").notNull(),
+    mode: text("mode", { enum: ["shadow", "custodied"] }).notNull(),
+    source: text("source").notNull(),
+    payload: text("payload").notNull(),
+    bodyHash: text("body_hash").notNull(),
+    receivedAt: integer("received_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.reportId, table.signerId] }),
+    uniqueIndex("reserve_reports_signer_sequence_idx").on(
+      table.signerId,
+      table.sequence,
+    ),
+    index("reserve_reports_as_of_idx").on(table.asOf),
+  ],
+);
+
+export const oracleAttestations = sqliteTable(
+  "oracle_attestations",
+  {
+    digest: text("digest").notNull(),
+    keyId: text("key_id").notNull(),
+    signature: text("signature").notNull(),
+    asOf: integer("as_of").notNull(),
+    receivedAt: integer("received_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.digest, table.keyId] }),
+    index("oracle_attestations_received_idx").on(table.receivedAt),
+  ],
+);
+
+export const shadowDailyStatus = sqliteTable("shadow_daily_status", {
+  day: text("day").primaryKey(),
+  samples: integer("samples").notNull().default(0),
+  indexReadySamples: integer("index_ready_samples").notNull().default(0),
+  backingReadySamples: integer("backing_ready_samples").notNull().default(0),
+  oracleReadySamples: integer("oracle_ready_samples").notNull().default(0),
+  fullyReadySamples: integer("fully_ready_samples").notNull().default(0),
+  failedSamples: integer("failed_samples").notNull().default(0),
+  lastSeenAt: integer("last_seen_at").notNull(),
 });

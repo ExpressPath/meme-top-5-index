@@ -37,8 +37,11 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+tsconfig.tsbuildinfo
+worker-configuration.d.ts
 /dist/
 /.wrangler/
 /outputs/
 /work/
 /.secrets/
+/token/evidence/private/

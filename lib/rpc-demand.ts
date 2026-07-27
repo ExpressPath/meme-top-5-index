@@ -2,11 +2,11 @@ import type {
   DataSourceHealth,
   MarketCandidate,
 } from "./index-engine";
+import { requestSolanaRpc } from "./solana-rpc";
 
 const POLLER_ID = "helius-demand-v1";
 const POLL_INTERVAL_SECONDS = 60;
 const SIGNATURE_LIMIT = 5;
-const REQUEST_TIMEOUT_MS = 6_000;
 
 type PollOptions = {
   database?: D1Database;
@@ -21,18 +21,13 @@ type SignatureInfo = {
   blockTime?: number;
 };
 
-type RpcResponse<T> = {
-  result?: T;
-  error?: { message?: string };
-};
-
-export async function pollHeliusDemand({
+export async function pollRpcDemand({
   database,
   apiKey,
   candidates,
   now = new Date(),
 }: PollOptions): Promise<DataSourceHealth | null> {
-  if (!database || !apiKey) return null;
+  if (!database) return null;
   const startedAt = Date.now();
   const observedAt = now.toISOString();
   const targets = candidates
@@ -85,14 +80,15 @@ export async function pollHeliusDemand({
       return health(true, 0, startedAt, observedAt);
     }
 
-    const signatures = await rpc<SignatureInfo[]>(
+    const signatures = await requestSolanaRpc<SignatureInfo[]>({
       apiKey,
-      "getSignaturesForAddress",
-      [
+      id: `getSignaturesForAddress-${Date.now()}`,
+      method: "getSignaturesForAddress",
+      params: [
         target.primaryPoolAddress,
         { limit: SIGNATURE_LIMIT, commitment: "confirmed" },
       ],
-    );
+    });
     const recent = (signatures ?? [])
       .filter(
         (item) =>
@@ -104,14 +100,19 @@ export async function pollHeliusDemand({
     const unknown = await unknownSignatures(database, recent);
     const transactions = await Promise.all(
       unknown.map((signature) =>
-        rpc<unknown>(apiKey, "getTransaction", [
-          signature,
-          {
-            commitment: "confirmed",
-            encoding: "jsonParsed",
-            maxSupportedTransactionVersion: 0,
-          },
-        ]).then((transaction) => ({ signature, transaction })),
+        requestSolanaRpc<unknown>({
+          apiKey,
+          id: `getTransaction-${signature}`,
+          method: "getTransaction",
+          params: [
+            signature,
+            {
+              commitment: "confirmed",
+              encoding: "jsonParsed",
+              maxSupportedTransactionVersion: 0,
+            },
+          ],
+        }).then((transaction) => ({ signature, transaction })),
       ),
     );
     const rows = transactions
@@ -141,7 +142,7 @@ export async function pollHeliusDemand({
               row.priceUsd,
               0.4,
               0.2,
-              "helius-online-poll",
+              "solana-rpc-online-poll",
               row.timestamp,
               nowSeconds,
             ),
@@ -275,39 +276,6 @@ function balancesByOwner(
   return result;
 }
 
-async function rpc<T>(
-  apiKey: string,
-  method: string,
-  params: unknown[],
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(
-      `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: `${method}-${Date.now()}`,
-          method,
-          params,
-        }),
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) throw new Error(`Helius HTTP ${response.status}`);
-    const payload = (await response.json()) as RpcResponse<T>;
-    if (payload.error) {
-      throw new Error(payload.error.message ?? `${method} failed`);
-    }
-    return payload.result as T;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 function health(
   ok: boolean,
   records: number,
@@ -316,7 +284,7 @@ function health(
   error?: string,
 ): DataSourceHealth {
   return {
-    name: "helius-demand-poll",
+    name: "solana-rpc-demand-poll",
     role: "demand",
     ok,
     discoveryOk: true,
