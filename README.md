@@ -18,8 +18,9 @@ Public site: <https://mt5-online-index.meme-top-5-index.workers.dev>
    USD, and whether the 300-trade response covers the full window.
 5. A Cloudflare Cron Trigger refreshes the index every minute. A D1 lease
    rotates over the selected pools, requests at most five new transactions
-   through the keyless Solana RPC fallback (or Helius when configured), and
-   stores normalized observations without a local process.
+   through keyless PublicNode with the official Solana endpoint as fallback
+   (or Helius when configured), and stores normalized observations without a
+   local process.
 6. Jupiter and Helius provide independent price, supply, authority, and mint
    verification when production keys are configured.
 7. D1 can also receive Helius or Birdeye observations through the authenticated

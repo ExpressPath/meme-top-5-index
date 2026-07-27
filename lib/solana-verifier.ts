@@ -2,6 +2,7 @@ import type {
   DataSourceHealth,
   MarketCandidate,
 } from "./index-engine";
+import { requestSolanaRpc } from "./solana-rpc";
 
 type JsonRpcResponse = {
   id?: string;
@@ -30,35 +31,24 @@ export async function verifySolanaMints(
   const observedAt = new Date().toISOString();
   const sourceName = apiKey ? "helius-rpc" : "solana-rpc";
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
-    const endpoint = apiKey
-      ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`
-      : "https://api.mainnet-beta.solana.com";
-    const responses = await Promise.all(
+    const payload = await Promise.all(
       candidates.map((coin) =>
-        fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: coin.tokenAddress,
-            method: "getAccountInfo",
-            params: [
-              coin.tokenAddress,
-              { encoding: "jsonParsed", commitment: "confirmed" },
-            ],
-          }),
-          signal: controller.signal,
-        }),
+        requestSolanaRpc<JsonRpcResponse["result"]>({
+          apiKey,
+          id: coin.tokenAddress,
+          method: "getAccountInfo",
+          params: [
+            coin.tokenAddress,
+            { encoding: "jsonParsed", commitment: "confirmed" },
+          ],
+          timeoutMs: 5_000,
+        }).then((result) => ({
+          id: coin.tokenAddress,
+          result,
+        })),
       ),
     );
-    const failed = responses.find((response) => !response.ok);
-    if (failed) throw new Error(`HTTP ${failed.status}`);
-    const payload = (await Promise.all(
-      responses.map((response) => response.json()),
-    )) as JsonRpcResponse[];
     const byAddress = new Map(
       payload.map((item) => [String(item.id ?? ""), item]),
     );
@@ -117,7 +107,5 @@ export async function verifySolanaMints(
         error: error instanceof Error ? error.message.slice(0, 160) : "unknown",
       } satisfies DataSourceHealth,
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }

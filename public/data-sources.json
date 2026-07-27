@@ -99,6 +99,28 @@
         "Not counted as a third market-price source.",
         "The free plan has no production SLA."
       ]
+    },
+    {
+      "id": "solana-public-rpc-failover",
+      "role": [
+        "mint existence",
+        "supply and decimals",
+        "mint authority",
+        "freeze authority",
+        "request-driven primary-pool transaction sampling"
+      ],
+      "authentication": "none",
+      "cost": "free keyless public endpoints",
+      "primaryEndpoint": "https://solana-rpc.publicnode.com",
+      "primaryDocumentation": "https://www.publicnode.com/",
+      "fallbackEndpoint": "https://api.mainnet-beta.solana.com",
+      "fallbackDocumentation": "https://solana.com/docs/references/clusters",
+      "productionRole": "online read-only chain verification and D1 demand sampling when Helius is not configured",
+      "limitations": [
+        "Public endpoints can throttle or reject shared cloud egress.",
+        "The service fails over per RPC request and reports degraded health when both endpoints fail.",
+        "No public endpoint is treated as an independent market-price source."
+      ]
     }
   ]
 }
