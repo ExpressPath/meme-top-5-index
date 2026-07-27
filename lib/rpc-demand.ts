@@ -26,13 +26,13 @@ type RpcResponse<T> = {
   error?: { message?: string };
 };
 
-export async function pollHeliusDemand({
+export async function pollRpcDemand({
   database,
   apiKey,
   candidates,
   now = new Date(),
 }: PollOptions): Promise<DataSourceHealth | null> {
-  if (!database || !apiKey) return null;
+  if (!database) return null;
   const startedAt = Date.now();
   const observedAt = now.toISOString();
   const targets = candidates
@@ -141,7 +141,7 @@ export async function pollHeliusDemand({
               row.priceUsd,
               0.4,
               0.2,
-              "helius-online-poll",
+              "solana-rpc-online-poll",
               row.timestamp,
               nowSeconds,
             ),
@@ -276,15 +276,18 @@ function balancesByOwner(
 }
 
 async function rpc<T>(
-  apiKey: string,
+  apiKey: string | undefined,
   method: string,
   params: unknown[],
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
+    const endpoint = apiKey
+      ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`
+      : "https://api.mainnet-beta.solana.com";
     const response = await fetch(
-      `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`,
+      endpoint,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -297,7 +300,7 @@ async function rpc<T>(
         signal: controller.signal,
       },
     );
-    if (!response.ok) throw new Error(`Helius HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`Solana RPC HTTP ${response.status}`);
     const payload = (await response.json()) as RpcResponse<T>;
     if (payload.error) {
       throw new Error(payload.error.message ?? `${method} failed`);
@@ -316,7 +319,7 @@ function health(
   error?: string,
 ): DataSourceHealth {
   return {
-    name: "helius-demand-poll",
+    name: "solana-rpc-demand-poll",
     role: "demand",
     ok,
     discoveryOk: true,

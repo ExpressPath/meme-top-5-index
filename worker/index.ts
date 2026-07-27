@@ -5,7 +5,7 @@ import handler from "vinext/server/app-router-entry";
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
-  IMAGES: {
+  IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
         output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
@@ -19,6 +19,12 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
+interface ScheduledController {
+  scheduledTime: number;
+  cron: string;
+  noRetry(): void;
+}
+
 // Image security config. SVG sources with .svg extension auto-skip the
 // optimization endpoint on the client side (served directly, no proxy).
 // To route SVGs through the optimizer (with security headers), set
@@ -30,6 +36,9 @@ const worker = {
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {
+      if (!env.IMAGES) {
+        return env.ASSETS.fetch(request);
+      }
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
         fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
@@ -41,6 +50,29 @@ const worker = {
     }
 
     return handler.fetch(request, env, ctx);
+  },
+  async scheduled(
+    controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    const request = new Request(
+      `https://mt5-scheduled.internal/api/index?scheduled=${controller.scheduledTime}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-MT5-Cron": controller.cron,
+        },
+      },
+    );
+    ctx.waitUntil(
+      handler.fetch(request, env, ctx).then(async (response) => {
+        await response.arrayBuffer();
+        if (!response.ok) {
+          throw new Error(`Scheduled index refresh failed: HTTP ${response.status}`);
+        }
+      }),
+    );
   },
 };
 

@@ -5,7 +5,7 @@ recent 30 minutes of primary-pool trades, estimates active buyers after
 deduplication and basic automation filtering, ranks five coins by buy USD, and
 weights their price movement by verified market capitalization.
 
-Public site: <https://meme-top-5-index.provf-official.chatgpt.site>
+Public site: <https://mt5-online-index.meme-top-5-index.workers.dev>
 
 ## Online data path
 
@@ -16,9 +16,10 @@ Public site: <https://meme-top-5-index.provf-official.chatgpt.site>
    high-frequency burst wallets.
 4. The API returns observed wallets, estimated active buyers, 30-minute buy
    USD, and whether the 300-trade response covers the full window.
-5. When GeckoTerminal is rate-limited, a D1 lease allows one Helius pool poll
-   per minute. It rotates over the selected coins, requests at most five new
-   transactions, and stores normalized observations without a local process.
+5. A Cloudflare Cron Trigger refreshes the index every minute. A D1 lease
+   rotates over the selected pools, requests at most five new transactions
+   through the keyless Solana RPC fallback (or Helius when configured), and
+   stores normalized observations without a local process.
 6. Jupiter and Helius provide independent price, supply, authority, and mint
    verification when production keys are configured.
 7. D1 can also receive Helius or Birdeye observations through the authenticated
@@ -43,8 +44,8 @@ during short source interruptions.
 
 ## Optional collectors
 
-The website and its request-driven Helius fallback work online without a local
-collector. Optional long-running Helius and
+The website and its request-driven Solana RPC fallback work online without a
+local collector. Optional long-running Helius and
 Birdeye collectors can add cross-pool observations to D1:
 
 ```bash

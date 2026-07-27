@@ -88,7 +88,8 @@ export type DataSourceHealth = {
     | "geckoterminal-trades"
     | "jupiter-price"
     | "helius-rpc"
-    | "helius-demand-poll";
+    | "solana-rpc"
+    | "solana-rpc-demand-poll";
   role: "market" | "chain" | "demand";
   ok: boolean;
   discoveryOk: boolean;

@@ -11,7 +11,7 @@
     "start": "vinext start",
     "test": "npm run test:unit && npm run build && node --test tests/rendered-html.test.mjs",
     "test:unit": "node --experimental-strip-types --test tests/*.unit.test.ts",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .wrangler",
     "db:generate": "drizzle-kit generate",
     "collector": "node scripts/helius-collector.mjs",
     "collector:birdeye": "node scripts/collector.mjs",

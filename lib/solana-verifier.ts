@@ -28,26 +28,14 @@ export async function verifySolanaMints(
 ) {
   const startedAt = Date.now();
   const observedAt = new Date().toISOString();
-  if (!apiKey) {
-    return {
-      candidates,
-      health: {
-        name: "helius-rpc",
-        role: "chain",
-        ok: false,
-        discoveryOk: false,
-        records: 0,
-        latencyMs: 0,
-        observedAt,
-        error: "not configured",
-      } satisfies DataSourceHealth,
-    };
-  }
+  const sourceName = apiKey ? "helius-rpc" : "solana-rpc";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
-    const endpoint = `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`;
+    const endpoint = apiKey
+      ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`
+      : "https://api.mainnet-beta.solana.com";
     const responses = await Promise.all(
       candidates.map((coin) =>
         fetch(endpoint, {
@@ -102,7 +90,7 @@ export async function verifySolanaMints(
     return {
       candidates: enriched,
       health: {
-        name: "helius-rpc",
+        name: sourceName,
         role: "chain",
         ok: verified === candidates.length && candidates.length > 0,
         discoveryOk: true,
@@ -119,7 +107,7 @@ export async function verifySolanaMints(
     return {
       candidates,
       health: {
-        name: "helius-rpc",
+        name: sourceName,
         role: "chain",
         ok: false,
         discoveryOk: false,

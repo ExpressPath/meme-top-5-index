@@ -5,7 +5,7 @@ import {
   type DemandSignal,
   type IndexSnapshot,
 } from "../../../lib/index-engine";
-import { pollHeliusDemand } from "../../../lib/helius-demand";
+import { pollRpcDemand } from "../../../lib/rpc-demand";
 import { fetchMarketData } from "../../../lib/market-data";
 import { verifySolanaMints } from "../../../lib/solana-verifier";
 
@@ -20,9 +20,10 @@ let cachedSnapshot:
   | undefined;
 let refreshInFlight: Promise<IndexSnapshot> | undefined;
 
-export async function GET() {
+export async function GET(request: Request) {
   const now = Date.now();
-  if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+  const scheduledRefresh = request.headers.has("x-mt5-cron");
+  if (!scheduledRefresh && cachedSnapshot && cachedSnapshot.expiresAt > now) {
     return indexResponse(cachedSnapshot.value, "HIT");
   }
 
@@ -71,7 +72,7 @@ async function createSnapshot() {
     asOf.toISOString(),
     marketData.sources,
   );
-  const pollHealth = await pollHeliusDemand({
+  const pollHealth = await pollRpcDemand({
     database: runtimeEnv.DB,
     apiKey: runtimeEnv.HELIUS_API_KEY,
     candidates: prePollSnapshot.constituents,
@@ -274,7 +275,7 @@ async function readDemandSignals(database?: D1Database) {
           0,
           row.observedBuyerWallets - row.estimatedUsers,
         ),
-        source: "helius-d1",
+        source: "solana-rpc-d1",
       },
     ]),
   );
