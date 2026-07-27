@@ -79,7 +79,7 @@ export async function authenticateIngestRequest(options: {
     throw new IngestSecurityError("Replay detected", 409);
   }
 
-  database
+  await database
     .prepare("DELETE FROM ingest_nonces WHERE received_at < ?")
     .bind(receivedAt - 24 * 60 * 60)
     .run()
