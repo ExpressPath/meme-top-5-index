@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "network": "solana-mainnet-beta",
   "status": "blocked",
   "checks": {
@@ -10,17 +10,29 @@
     "smartContractAuditPassed": false,
     "multisigConfigured": false,
     "oracleHasTwoIndependentSigners": false,
+    "reserveReportsHaveTwoIndependentSigners": false,
+    "reserveRatioAtLeast102Percent": false,
+    "basketWeightDriftWithin100Bps": false,
     "incidentRunbookApproved": false,
     "thirtyDayShadowPublicationPassed": false,
     "explicitMainnetApproval": false
   },
   "liveIndexRequirements": {
+    "methodologyVersion": "4.0",
     "publicationState": "publishable",
     "tokenNavEligible": true,
     "minimumSourceQuorum": 2,
     "requiredConsensusConstituents": 5,
     "requiredChainVerifiedConstituents": 5,
-    "requiredSafeAuthorityConstituents": 5
+    "requiredSafeAuthorityConstituents": 5,
+    "snapshotSignatureRequired": true
+  },
+  "backingRequirements": {
+    "endpoint": "/api/backing",
+    "releaseEligible": true,
+    "minimumAttestations": 2,
+    "minimumReserveRatioBps": 10200,
+    "maximumWeightDriftBps": 100
   },
   "notes": [
     "This file intentionally blocks minting and public deposits.",

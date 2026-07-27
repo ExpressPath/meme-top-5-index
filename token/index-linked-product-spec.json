@@ -1,14 +1,14 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "status": "production-architecture-draft",
   "network": "solana-mainnet-beta",
   "workingName": "MT5 Index Vault Share",
   "trackingModel": "fully-backed redeemable basket vault share",
   "reason": "A fixed-supply token does not track an index by itself. Creation and redemption against the underlying basket are required for arbitrage to keep market price near NAV.",
   "basket": {
-    "referenceIndex": "MT5 methodology 3.0",
+    "referenceIndex": "MT5 methodology 4.0",
     "constituents": 5,
-    "weighting": "verified market capitalization",
+    "weighting": "35% capped verified market capitalization with divisor continuity",
     "pricingCurrency": "USD",
     "settlementAsset": "USDC",
     "selectionObservationMinutes": 30,
@@ -37,7 +37,10 @@
   },
   "custody": {
     "model": "segregated on-chain vault plus regulated operational custody",
-    "proofOfReserves": "public vault balances and daily signed holdings report",
+    "proofOfReserves": "public vault balances and identical daily holdings report attested by at least two independent configured signers",
+    "targetReserveRatioBps": 10200,
+    "maximumBasketWeightDriftBps": 100,
+    "maximumReportAgeSeconds": 86400,
     "status": "not-selected"
   },
   "legal": {

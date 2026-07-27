@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "scope": ["public index API", "trade ingestion", "reserve reporting", "scheduled refresh"],
+  "controls": {
+    "publicSnapshot": "Ed25519 signed response body with SHA-256 Content-Digest",
+    "scheduledRefresh": "32-byte secret, constant-time comparison, internal Cron only",
+    "writeAuthentication": "HMAC-SHA256 over timestamp, nonce, and exact request body",
+    "replayProtection": "five-minute request window and 24-hour D1 nonce retention",
+    "writeRateLimit": "60 requests per minute per network-address and signer pair",
+    "inputValidation": "256 KiB maximum, strict source and Solana identifier validation",
+    "reserveQuorum": "two distinct configured signers must attest to an identical normalized report",
+    "failClosed": true
+  },
+  "releaseBlocks": [
+    "no custody connection",
+    "no production vault implementation",
+    "no smart-contract audit",
+    "no written legal approval",
+    "no thirty-day shadow-publication evidence"
+  ],
+  "reporting": {
+    "contact": "Use the GitHub repository security reporting channel; do not publish active exploit details.",
+    "repository": "https://github.com/ExpressPath/meme-top-5-index"
+  }
+}

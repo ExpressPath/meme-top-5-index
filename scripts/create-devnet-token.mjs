@@ -48,7 +48,7 @@ const SYMBOL = "MT5R";
 const DECIMALS = 6;
 const WHOLE_SUPPLY = 1_000_000_000n;
 const METADATA_URI =
-  "https://meme-top-5-index.provf-official.chatgpt.site/token/metadata.json";
+  "https://mt5-online-index.meme-top-5-index.workers.dev/token/metadata.json";
 
 const existing = await readJson(OUTPUT_PATH);
 if (existing?.mintAddress) {

@@ -20,6 +20,20 @@
       "migrations_dir": "drizzle"
     }
   ],
+  "ratelimits": [
+    {
+      "name": "WRITE_RATE_LIMITER",
+      "namespace_id": "77101",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "SNAPSHOT_SIGNING_PUBLIC_KEY": "XUDZY9KcKkSxACBGRdKvo8ys8cvzp9gRfahcg6eoxLw=",
+    "SNAPSHOT_SIGNING_KEY_ID": "mt5-index-2026-07-27"
+  },
   "triggers": {
     "crons": ["* * * * *"]
   },

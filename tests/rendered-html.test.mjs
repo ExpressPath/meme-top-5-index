@@ -33,6 +33,7 @@ test("renders the MT5 public index page without mojibake", async () => {
   assert.match(html, /現在のトップ5/);
   assert.match(html, /推定アクティブ買い手/);
   assert.match(html, /Mainnet発行や入金は行いません/);
+  assert.match(html, /裏付け資産は、発行より先に証明する/);
   assert.match(html, /ENSG3jHnZM3EgzMb8WZHMg4oQ1hZL8KisuTCx7f8msHt/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
   assert.doesNotMatch(html, /繧|縺|螟/);
@@ -49,7 +50,8 @@ test("serves the public index API with demand coverage fields", async () => {
     /^(live-human-estimate|live-wallet-observation|live-market-proxy|fallback)$/,
   );
   assert.equal(body.constituents.length, 5);
-  assert.equal(body.methodologyVersion, "3.1");
+  assert.equal(body.methodologyVersion, "4.0");
+  assert.equal(body.weighting.maximumConstituentWeight, 0.35);
   assert.match(body.publication.state, /^(publishable|degraded|halted)$/);
   assert.equal(typeof body.publication.tokenNavEligible, "boolean");
   assert.equal(
@@ -62,4 +64,21 @@ test("serves the public index API with demand coverage fields", async () => {
     assert.equal("observedBuyerWallets" in coin, true);
     assert.equal("demandCoverageComplete" in coin, true);
   }
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.ok(response.headers.get("content-digest"));
+});
+
+test("serves fail-closed backing and public security metadata", async () => {
+  const backingResponse = await render("/api/backing");
+  assert.equal(backingResponse.status, 200);
+  const backing = await backingResponse.json();
+  assert.equal(backing.releaseEligible, false);
+  assert.equal(backing.plan.targetReserveRatioBps, 10200);
+  assert.equal(backing.attestationQuorum.required, 2);
+
+  const securityResponse = await render("/api/security");
+  assert.equal(securityResponse.status, 200);
+  const security = await securityResponse.json();
+  assert.equal(security.snapshotSigning.algorithm, "Ed25519");
+  assert.equal(security.writeBoundary.authentication, "HMAC-SHA256");
 });

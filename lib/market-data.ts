@@ -383,9 +383,10 @@ async function fetchGeckoTerminalQuotes(addresses: string[]) {
           finite(m30.sells),
         ),
         demandCoverage: "aggregate",
-        primaryPoolAddress: stripNetworkPrefix(pool?.id),
+        primaryPoolAddress: stripNetworkPrefix(pool?.id) ?? undefined,
         changePercent: finite(priceChange.h1),
-        imageUrl: safeImageUrl(stringValue(tokenAttributes.image_url)),
+        imageUrl:
+          safeImageUrl(stringValue(tokenAttributes.image_url)) ?? undefined,
       };
     },
   );

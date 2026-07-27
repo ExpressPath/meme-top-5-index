@@ -8,6 +8,13 @@ import {
 import { pollRpcDemand } from "../../../lib/rpc-demand";
 import { fetchMarketData } from "../../../lib/market-data";
 import { verifySolanaMints } from "../../../lib/solana-verifier";
+import {
+  advanceIndexState,
+  persistIndexSnapshot,
+  readIndexState,
+  readLatestIndexSnapshot,
+} from "../../../lib/index-store";
+import { signSnapshotBody } from "../../../lib/snapshot-integrity";
 
 const SEED_ADDRESSES = fallbackCandidates.map((coin) => coin.tokenAddress);
 const SNAPSHOT_TTL_MS = 60_000;
@@ -22,22 +29,45 @@ let refreshInFlight: Promise<IndexSnapshot> | undefined;
 
 export async function GET(request: Request) {
   const now = Date.now();
-  const scheduledRefresh = request.headers.has("x-mt5-cron");
-  if (!scheduledRefresh && cachedSnapshot && cachedSnapshot.expiresAt > now) {
-    return indexResponse(cachedSnapshot.value, "HIT");
+  const runtimeEnv = await getRuntimeEnv();
+  const scheduledRefresh = isAuthenticatedCron(request, runtimeEnv.CRON_SECRET);
+  if (!scheduledRefresh) {
+    const storedSnapshot = await readLatestIndexSnapshot(runtimeEnv.DB).catch(
+      () => null,
+    );
+    if (storedSnapshot) {
+      cachedSnapshot = {
+        value: storedSnapshot,
+        expiresAt: now + SNAPSHOT_TTL_MS,
+      };
+      return indexResponse(storedSnapshot, "D1", runtimeEnv);
+    }
+    if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+      return indexResponse(cachedSnapshot.value, "HIT", runtimeEnv);
+    }
   }
 
-  refreshInFlight ??= createSnapshot().finally(() => {
+  refreshInFlight ??= createSnapshot(runtimeEnv).finally(() => {
     refreshInFlight = undefined;
   });
 
   try {
-    const snapshot = await refreshInFlight;
+    const rawSnapshot = await refreshInFlight;
+    const previousState = await readIndexState(runtimeEnv.DB).catch(() => null);
+    const advanced = advanceIndexState(previousState, rawSnapshot);
+    const snapshot = advanced.snapshot;
+    if (scheduledRefresh) {
+      await persistIndexSnapshot(runtimeEnv.DB, snapshot, advanced.state);
+    }
     cachedSnapshot = {
       value: snapshot,
       expiresAt: Date.now() + SNAPSHOT_TTL_MS,
     };
-    return indexResponse(snapshot, "MISS");
+    return indexResponse(
+      snapshot,
+      scheduledRefresh ? "CRON" : "MISS",
+      runtimeEnv,
+    );
   } catch {
     const fallback = buildSnapshot(
       fallbackCandidates,
@@ -59,13 +89,15 @@ export async function GET(request: Request) {
         },
       },
       "ERROR",
+      runtimeEnv,
     );
   }
 }
 
-async function createSnapshot() {
+async function createSnapshot(
+  runtimeEnv: Awaited<ReturnType<typeof getRuntimeEnv>>,
+) {
   const asOf = new Date();
-  const runtimeEnv = await getRuntimeEnv();
   const marketData = await fetchMarketData(SEED_ADDRESSES);
   const prePollSnapshot = buildSnapshot(
     marketData.candidates,
@@ -188,19 +220,49 @@ function chooseDemandSignal(
   return first;
 }
 
-function indexResponse(
+async function indexResponse(
   snapshot: IndexSnapshot,
-  cacheStatus: "HIT" | "MISS" | "ERROR",
+  cacheStatus: "D1" | "HIT" | "MISS" | "CRON" | "ERROR",
+  runtimeEnv: Awaited<ReturnType<typeof getRuntimeEnv>>,
 ) {
-  return Response.json(snapshot, {
+  const body = JSON.stringify(snapshot);
+  const integrity = await signSnapshotBody(
+    body,
+    runtimeEnv.SNAPSHOT_SIGNING_PRIVATE_KEY,
+  );
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control":
+      "public, max-age=5, s-maxage=60, stale-while-revalidate=180",
+    "Access-Control-Allow-Origin": "*",
+    "X-MT5-Publication-State": snapshot.publication.state,
+    "X-MT5-Cache": cacheStatus,
+    "Content-Digest": integrity.digest,
+  };
+  if (integrity.signature) {
+    headers["X-MT5-Signature"] = integrity.signature;
+    headers["X-MT5-Signature-Algorithm"] = "ed25519";
+    headers["X-MT5-Key-Id"] =
+      runtimeEnv.SNAPSHOT_SIGNING_KEY_ID ?? "mt5-index-1";
+  }
+  return new Response(body, {
+    status: 200,
     headers: {
-      "Cache-Control":
-        "public, max-age=5, s-maxage=60, stale-while-revalidate=180",
-      "Access-Control-Allow-Origin": "*",
-      "X-MT5-Publication-State": snapshot.publication.state,
-      "X-MT5-Cache": cacheStatus,
+      ...headers,
     },
   });
+}
+
+function isAuthenticatedCron(request: Request, expectedSecret?: string) {
+  const suppliedSecret = request.headers.get("x-mt5-cron-token") ?? "";
+  if (!expectedSecret || expectedSecret.length < 32) return false;
+  if (suppliedSecret.length !== expectedSecret.length) return false;
+  let difference = 0;
+  for (let index = 0; index < suppliedSecret.length; index += 1) {
+    difference |=
+      suppliedSecret.charCodeAt(index) ^ expectedSecret.charCodeAt(index);
+  }
+  return difference === 0;
 }
 
 async function readDemandSignals(database?: D1Database) {
@@ -284,12 +346,20 @@ async function readDemandSignals(database?: D1Database) {
 async function getRuntimeEnv(): Promise<{
   DB?: D1Database;
   HELIUS_API_KEY?: string;
+  CRON_SECRET?: string;
+  SNAPSHOT_SIGNING_PRIVATE_KEY?: string;
+  SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
+  SNAPSHOT_SIGNING_KEY_ID?: string;
 }> {
   try {
     const workers = await import("cloudflare:workers");
     const runtime = workers.env as unknown as {
       DB?: D1Database;
       HELIUS_API_KEY?: string;
+      CRON_SECRET?: string;
+      SNAPSHOT_SIGNING_PRIVATE_KEY?: string;
+      SNAPSHOT_SIGNING_PUBLIC_KEY?: string;
+      SNAPSHOT_SIGNING_KEY_ID?: string;
     };
     return {
       ...runtime,
@@ -297,6 +367,14 @@ async function getRuntimeEnv(): Promise<{
         runtime.HELIUS_API_KEY ?? process.env.HELIUS_API_KEY,
     };
   } catch {
-    return { HELIUS_API_KEY: process.env.HELIUS_API_KEY };
+    return {
+      HELIUS_API_KEY: process.env.HELIUS_API_KEY,
+      CRON_SECRET: process.env.CRON_SECRET,
+      SNAPSHOT_SIGNING_PRIVATE_KEY:
+        process.env.SNAPSHOT_SIGNING_PRIVATE_KEY,
+      SNAPSHOT_SIGNING_PUBLIC_KEY:
+        process.env.SNAPSHOT_SIGNING_PUBLIC_KEY,
+      SNAPSHOT_SIGNING_KEY_ID: process.env.SNAPSHOT_SIGNING_KEY_ID,
+    };
   }
 }

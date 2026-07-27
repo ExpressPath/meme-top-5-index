@@ -340,6 +340,105 @@ a {
   padding-block: 120px;
 }
 
+.backing-panel {
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-top: 4px solid #d9992b;
+  border-radius: 4px;
+  box-shadow: 0 18px 50px rgb(12 23 41 / 5%);
+}
+
+.backing-panel.ready {
+  border-top-color: var(--positive);
+}
+
+.backing-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 34px;
+}
+
+.backing-head h2 {
+  margin: 10px 0 0;
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1.15;
+  letter-spacing: -0.05em;
+}
+
+.backing-state {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  background: #fff4db;
+  color: #73521b;
+  border-radius: 999px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.backing-panel.ready .backing-state {
+  background: #dff7ef;
+  color: var(--positive);
+}
+
+.backing-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--navy);
+  color: white;
+}
+
+.backing-metrics > div {
+  padding: 25px 28px;
+  border-right: 1px solid rgb(255 255 255 / 12%);
+}
+
+.backing-metrics > div:last-child {
+  border-right: 0;
+}
+
+.backing-metrics strong,
+.backing-metrics span {
+  display: block;
+}
+
+.backing-metrics strong {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 22px;
+}
+
+.backing-metrics span {
+  margin-top: 6px;
+  color: #94a0b4;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.backing-panel > p {
+  margin: 0;
+  padding: 26px 34px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.backing-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0 34px 28px;
+  color: var(--red-dark);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .section-heading {
   display: flex;
   align-items: end;
@@ -842,9 +941,14 @@ a {
   }
 
   .section-heading,
-  .closing-inner {
+  .closing-inner,
+  .backing-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .backing-metrics {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .section-summary {
